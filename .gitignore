@@ -1,0 +1,32 @@
+# Node
+node_modules/
+npm-debug.log
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Docker
+**/docker-data/
+**/tmp/
+**/logs/
+**/data/
+**/volumes/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE/editor
+.vscode/
+.idea/
+
+# Build outputs
+build/
+dist/
+coverage/
+
+# Misc
+*.log
