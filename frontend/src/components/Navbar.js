@@ -43,6 +43,18 @@ function Navbar({ currentPage, setCurrentPage }) {
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [showAdminDropdown, setShowAdminDropdown] = useState(false);
 
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showClientDropdown && !event.target.closest('.dropdown')) {
+        setShowClientDropdown(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showClientDropdown]);
+
   const handleAuthSuccess = (userData) => {
     console.log('User logged in:', userData);
     updateUserInfo(userData);
@@ -108,7 +120,10 @@ function Navbar({ currentPage, setCurrentPage }) {
                   onMouseEnter={() => setShowClientDropdown(true)}
                   onMouseLeave={() => setShowClientDropdown(false)}
                 >
-                  <button className="dropdown-btn">
+                  <button 
+                    className="dropdown-btn"
+                    onClick={() => setShowClientDropdown(!showClientDropdown)}
+                  >
                     Client-Side ▼
                   </button>
                   {showClientDropdown && (
@@ -116,14 +131,16 @@ function Navbar({ currentPage, setCurrentPage }) {
                       <button onClick={() => navigateTo('home')}>Home</button>
                       <button onClick={() => navigateTo('albums')}>Albums</button>
                       <button onClick={() => navigateTo('orders')}>Orders</button>
-                      <button onClick={() => navigateTo('reports')}>Reports</button>
                     </div>
                   )}
                 </li>
 
                 {/* ADMIN-SIDE BUTTON */}
                 <li className={currentPage === 'admin' ? 'active' : ''}>
-                  <button onClick={() => navigateTo('admin')}>Admin-Side</button>
+                  <button onClick={() => navigateTo('admin')}>Management</button>
+                </li>
+                <li className={currentPage === 'reports' ? 'active' : ''}>
+                  <button onClick={() => navigateTo('reports')}>Reports</button>
                 </li>
               </>
             )}

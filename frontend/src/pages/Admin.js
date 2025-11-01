@@ -172,27 +172,79 @@ function Admin() {
     }
   };
 
-  // DELETE OPERATION
+  // DELETE OPERATION with Options
   const handleDelete = async (item) => {
-    if (!window.confirm('Are you sure you want to delete this item?')) return;
+    const idField = getIdField();
+    const id = item[idField];
+
+    // Check what's blocking deletion first
+    const checkResponse = await fetch(`http://localhost:5000/api/admin/check-delete/${activeTab}/${id}`);
+    const checkData = await checkResponse.json();
+
+    let deleteOption = 'normal';
+    
+    if (!checkData.canDelete) {
+      // Show options when deletion is blocked
+      let message = `⚠️ ${checkData.message}\n\n`;
+      message += `Dependencies: ${checkData.dependencies.join(', ')}\n\n`;
+      message += `Choose an option:\n`;
+      
+      if (activeTab === 'albums') {
+        message += `1. Set Stock to 0 (Disable album but keep history)\n`;
+        message += `2. Force Delete Everything (⚠️ PERMANENT - deletes all related orders)\n`;
+        message += `3. Cancel\n\n`;
+        message += `Enter 1, 2, or 3:`;
+        
+        const choice = prompt(message);
+        if (choice === '1') deleteOption = 'setStockZero';
+        else if (choice === '2') {
+          if (!window.confirm('⚠️ WARNING: This will permanently delete the album and ALL related order records. This cannot be undone! Are you absolutely sure?')) return;
+          deleteOption = 'force';
+        } else return;
+      } else {
+        message += `1. Force Delete Everything (⚠️ PERMANENT - deletes all related records)\n`;
+        message += `2. Cancel\n\n`;
+        message += `Enter 1 or 2:`;
+        
+        const choice = prompt(message);
+        if (choice === '1') {
+          if (!window.confirm('⚠️ WARNING: This will permanently delete this item and ALL related records. This cannot be undone! Are you absolutely sure?')) return;
+          deleteOption = 'force';
+        } else return;
+      }
+    } else {
+      // Can delete safely
+      if (!window.confirm(`✅ ${checkData.message}\n\nAre you sure you want to delete this item?`)) return;
+    }
 
     try {
-      const idField = getIdField();
-      const id = item[idField];
-      const response = await fetch(getApiUrl(true).replace(`/${id}`, '') + `/${id}`, {
-        method: 'DELETE'
-      });
+      let url = `http://localhost:5000/api/admin/${activeTab}/${id}`;
+      
+      // Add query parameters based on option
+      if (deleteOption === 'force') url += '?force=true';
+      else if (deleteOption === 'setStockZero') url += '?setStockZero=true';
+
+      const response = await fetch(url, { method: 'DELETE' });
 
       if (response.ok) {
-        alert('Deleted successfully!');
+        const result = await response.json();
+        let successMessage = result.message;
+        
+        if (result.deletedOrderItems) successMessage += `\n\n📊 Deleted ${result.deletedOrderItems} order item(s)`;
+        if (result.deletedAlbums) successMessage += `\n📀 Deleted ${result.deletedAlbums} album(s)`;
+        if (result.deletedArtists) successMessage += `\n🎤 Deleted ${result.deletedArtists} artist(s)`;
+        if (result.deletedOrders) successMessage += `\n📦 Deleted ${result.deletedOrders} order(s)`;
+        if (result.deletedPayments) successMessage += `\n💳 Deleted ${result.deletedPayments} payment(s)`;
+        
+        alert('✅ ' + successMessage);
         fetchData();
       } else {
         const error = await response.json();
-        alert(`Error: ${error.error || 'Delete failed'}`);
+        alert(`❌ Error: ${error.error || 'Delete failed'}\n\n${error.suggestion || ''}`);
       }
     } catch (error) {
       console.error('Delete error:', error);
-      alert('Error deleting item');
+      alert('❌ Error deleting item');
     }
   };
 

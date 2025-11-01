@@ -176,12 +176,23 @@
   position: relative;
 }
 
+.dropdown::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 0.5rem;
+  background: transparent;
+  z-index: 1000;
+}
+
 .dropdown-btn {
   background: transparent !important;
   border: none;
   color: rgba(255, 255, 255, 0.85) !important;
   font-size: 1rem;
-  padding: 0.5rem 0 !important;
+  padding: 0.5rem 1rem !important;
   cursor: pointer;
   transition: all 0.3s ease;
   font-weight: 500;
@@ -191,12 +202,15 @@
 .dropdown-btn::after {
   content: '';
   position: absolute;
-  bottom: -5px;
-  left: 0;
-  width: 0;
+  bottom: 0;
+  left: 1rem;
+  right: 1rem;
+  width: auto;
   height: 2px;
   background: #fff;
-  transition: width 0.3s ease;
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+  transform-origin: left;
 }
 
 .dropdown:hover .dropdown-btn,
@@ -206,19 +220,18 @@
 
 .dropdown:hover .dropdown-btn::after,
 .dropdown.active .dropdown-btn::after {
-  width: 100%;
+  transform: scaleX(1);
 }
 
 .dropdown-menu {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 0.5rem);
   left: 50%;
   transform: translateX(-50%);
   background: #1a1a2e;
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   min-width: 200px;
-  margin-top: 1rem;
   padding: 0.5rem 0;
   animation: slideDown 0.2s ease;
   z-index: 1001;
@@ -228,11 +241,11 @@
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateX(-50%) translateY(-10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(-50%) translateY(0);
   }
 }
 
@@ -250,11 +263,29 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  position: relative;
+}
+
+.dropdown-menu button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #fff;
+  transform: scaleY(0);
+  transition: transform 0.2s ease;
 }
 
 .dropdown-menu button:hover {
   background: rgba(255, 255, 255, 0.1) !important;
   color: #fff;
+  padding-left: 1.8rem;
+}
+
+.dropdown-menu button:hover::before {
+  transform: scaleY(1);
 }
 
 /* Icons in navbar */
@@ -297,7 +328,26 @@
   .dropdown-menu {
     min-width: 150px;
     left: 0;
-    transform: none;
+    transform: translateX(0);
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateX(0) translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) translateY(0);
+    }
+  }
+
+  .dropdown::before {
+    display: none;
+  }
+
+  .dropdown-btn {
+    padding: 0.5rem !important;
   }
 }
 

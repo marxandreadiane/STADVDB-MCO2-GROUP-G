@@ -664,12 +664,99 @@ app.put("/api/admin/albums/:id", async (req, res) => {
 
 app.delete("/api/admin/albums/:id", async (req, res) => {
   const { id } = req.params;
+  const { force, setStockZero } = req.query; // force=true for cascade delete, setStockZero=true to disable instead
+  const client = await mainDB.connect();
+  
   try {
-    await mainDB.query('DELETE FROM albums WHERE album_id = $1', [id]);
+    await client.query('BEGIN');
+    
+    // Option 1: Set stock to 0 instead of deleting
+    if (setStockZero === 'true') {
+      const result = await client.query(
+        'UPDATE albums SET stock_quantity = 0 WHERE album_id = $1 RETURNING *',
+        [id]
+      );
+      
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: "Album not found" });
+      }
+      
+      await client.query('COMMIT');
+      return res.json({ 
+        message: "Album stock set to 0 (disabled)", 
+        album: result.rows[0] 
+      });
+    }
+    
+    // Check if album has any orders
+    const ordersCheck = await client.query(
+      'SELECT COUNT(*) as count FROM order_items WHERE album_id = $1',
+      [id]
+    );
+    
+    const orderCount = parseInt(ordersCheck.rows[0].count);
+    
+    // Option 2: Force delete with cascade
+    if (force === 'true' && orderCount > 0) {
+      // Delete all order items first
+      await client.query('DELETE FROM order_items WHERE album_id = $1', [id]);
+      
+      // Remove from carts
+      await client.query('DELETE FROM cart_items WHERE album_id = $1', [id]);
+      
+      // Delete the album
+      const result = await client.query('DELETE FROM albums WHERE album_id = $1 RETURNING *', [id]);
+      
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: "Album not found" });
+      }
+      
+      await client.query('COMMIT');
+      return res.json({ 
+        message: "Album and all related records deleted successfully",
+        deletedOrderItems: orderCount
+      });
+    }
+    
+    // Option 3: Safe delete (default)
+    if (orderCount > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        error: "Cannot delete album with existing orders",
+        suggestion: "Use ?setStockZero=true to disable the album or ?force=true to delete everything",
+        orderCount: orderCount
+      });
+    }
+    
+    // Check if album is in any carts
+    const cartCheck = await client.query(
+      'SELECT COUNT(*) as count FROM cart_items WHERE album_id = $1',
+      [id]
+    );
+    
+    // Remove from carts if present
+    if (parseInt(cartCheck.rows[0].count) > 0) {
+      await client.query('DELETE FROM cart_items WHERE album_id = $1', [id]);
+    }
+    
+    // Delete the album
+    const result = await client.query('DELETE FROM albums WHERE album_id = $1 RETURNING *', [id]);
+    
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: "Album not found" });
+    }
+    
+    await client.query('COMMIT');
     res.json({ message: "Album deleted successfully" });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Delete album error:', err);
-    res.status(500).json({ error: "Failed to delete album" });
+    res.status(500).json({ error: "Failed to delete album: " + err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -725,12 +812,82 @@ app.put("/api/admin/artists/:id", async (req, res) => {
 
 app.delete("/api/admin/artists/:id", async (req, res) => {
   const { id } = req.params;
+  const { force } = req.query; // force=true for cascade delete
+  const client = await mainDB.connect();
+  
   try {
-    await mainDB.query('DELETE FROM artists WHERE artist_id = $1', [id]);
+    await client.query('BEGIN');
+    
+    // Check if artist has any albums
+    const albumsCheck = await client.query(
+      'SELECT album_id FROM albums WHERE artist_id = $1',
+      [id]
+    );
+    
+    const albumCount = albumsCheck.rows.length;
+    
+    // Option 1: Force delete with cascade
+    if (force === 'true' && albumCount > 0) {
+      let deletedOrderItems = 0;
+      
+      // For each album, delete related records
+      for (const album of albumsCheck.rows) {
+        // Delete order items
+        const orderItemsResult = await client.query(
+          'DELETE FROM order_items WHERE album_id = $1',
+          [album.album_id]
+        );
+        deletedOrderItems += orderItemsResult.rowCount;
+        
+        // Delete cart items
+        await client.query('DELETE FROM cart_items WHERE album_id = $1', [album.album_id]);
+      }
+      
+      // Delete all albums
+      await client.query('DELETE FROM albums WHERE artist_id = $1', [id]);
+      
+      // Delete the artist
+      const result = await client.query('DELETE FROM artists WHERE artist_id = $1 RETURNING *', [id]);
+      
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: "Artist not found" });
+      }
+      
+      await client.query('COMMIT');
+      return res.json({ 
+        message: "Artist and all related records deleted successfully",
+        deletedAlbums: albumCount,
+        deletedOrderItems: deletedOrderItems
+      });
+    }
+    
+    // Option 2: Safe delete (default)
+    if (albumCount > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        error: "Cannot delete artist with existing albums",
+        suggestion: "Use ?force=true to delete artist and all related albums",
+        albumCount: albumCount
+      });
+    }
+    
+    // Delete the artist
+    const result = await client.query('DELETE FROM artists WHERE artist_id = $1 RETURNING *', [id]);
+    
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: "Artist not found" });
+    }
+    
+    await client.query('COMMIT');
     res.json({ message: "Artist deleted successfully" });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Delete artist error:', err);
-    res.status(500).json({ error: "Failed to delete artist" });
+    res.status(500).json({ error: "Failed to delete artist: " + err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -779,12 +936,98 @@ app.put("/api/admin/companies/:id", async (req, res) => {
 
 app.delete("/api/admin/companies/:id", async (req, res) => {
   const { id } = req.params;
+  const { force } = req.query; // force=true for cascade delete
+  const client = await mainDB.connect();
+  
   try {
-    await mainDB.query('DELETE FROM companies WHERE company_id = $1', [id]);
+    await client.query('BEGIN');
+    
+    // Check if company has any artists
+    const artistsCheck = await client.query(
+      'SELECT artist_id FROM artists WHERE company_id = $1',
+      [id]
+    );
+    
+    const artistCount = artistsCheck.rows.length;
+    
+    // Option 1: Force delete with cascade
+    if (force === 'true' && artistCount > 0) {
+      let deletedAlbums = 0;
+      let deletedOrderItems = 0;
+      
+      // For each artist, delete all related records
+      for (const artist of artistsCheck.rows) {
+        // Get all albums for this artist
+        const albumsCheck = await client.query(
+          'SELECT album_id FROM albums WHERE artist_id = $1',
+          [artist.artist_id]
+        );
+        
+        deletedAlbums += albumsCheck.rows.length;
+        
+        // For each album, delete related records
+        for (const album of albumsCheck.rows) {
+          // Delete order items
+          const orderItemsResult = await client.query(
+            'DELETE FROM order_items WHERE album_id = $1',
+            [album.album_id]
+          );
+          deletedOrderItems += orderItemsResult.rowCount;
+          
+          // Delete cart items
+          await client.query('DELETE FROM cart_items WHERE album_id = $1', [album.album_id]);
+        }
+        
+        // Delete all albums for this artist
+        await client.query('DELETE FROM albums WHERE artist_id = $1', [artist.artist_id]);
+      }
+      
+      // Delete all artists
+      await client.query('DELETE FROM artists WHERE company_id = $1', [id]);
+      
+      // Delete the company
+      const result = await client.query('DELETE FROM companies WHERE company_id = $1 RETURNING *', [id]);
+      
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: "Company not found" });
+      }
+      
+      await client.query('COMMIT');
+      return res.json({ 
+        message: "Company and all related records deleted successfully",
+        deletedArtists: artistCount,
+        deletedAlbums: deletedAlbums,
+        deletedOrderItems: deletedOrderItems
+      });
+    }
+    
+    // Option 2: Safe delete (default)
+    if (artistCount > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        error: "Cannot delete company with existing artists",
+        suggestion: "Use ?force=true to delete company and all related artists and albums",
+        artistCount: artistCount
+      });
+    }
+    
+    // Delete the company
+    const result = await client.query('DELETE FROM companies WHERE company_id = $1 RETURNING *', [id]);
+    
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: "Company not found" });
+    }
+    
+    await client.query('COMMIT');
     res.json({ message: "Company deleted successfully" });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Delete company error:', err);
-    res.status(500).json({ error: "Failed to delete company" });
+    res.status(500).json({ error: "Failed to delete company: " + err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -833,12 +1076,181 @@ app.put("/api/admin/users/:id", async (req, res) => {
 
 app.delete("/api/admin/users/:id", async (req, res) => {
   const { id } = req.params;
+  const { force } = req.query; // force=true for cascade delete
+  const client = await mainDB.connect();
+  
   try {
-    await mainDB.query('DELETE FROM users WHERE user_id = $1', [id]);
+    await client.query('BEGIN');
+    
+    // Check if user has any orders
+    const ordersCheck = await client.query(
+      'SELECT order_id FROM orders WHERE user_id = $1',
+      [id]
+    );
+    
+    const orderCount = ordersCheck.rows.length;
+    
+    // Option 1: Force delete with cascade
+    if (force === 'true' && orderCount > 0) {
+      let deletedOrderItems = 0;
+      let deletedPayments = 0;
+      
+      // For each order, delete related records
+      for (const order of ordersCheck.rows) {
+        // Delete order items
+        const orderItemsResult = await client.query(
+          'DELETE FROM order_items WHERE order_id = $1',
+          [order.order_id]
+        );
+        deletedOrderItems += orderItemsResult.rowCount;
+        
+        // Delete payments
+        const paymentsResult = await client.query(
+          'DELETE FROM payments WHERE order_id = $1',
+          [order.order_id]
+        );
+        deletedPayments += paymentsResult.rowCount;
+      }
+      
+      // Delete all orders
+      await client.query('DELETE FROM orders WHERE user_id = $1', [id]);
+      
+      // Delete cart items
+      await client.query('DELETE FROM cart_items WHERE user_id = $1', [id]);
+      
+      // Delete the user
+      const result = await client.query('DELETE FROM users WHERE user_id = $1 RETURNING *', [id]);
+      
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      await client.query('COMMIT');
+      return res.json({ 
+        message: "User and all related records deleted successfully",
+        deletedOrders: orderCount,
+        deletedOrderItems: deletedOrderItems,
+        deletedPayments: deletedPayments
+      });
+    }
+    
+    // Option 2: Safe delete (default)
+    if (orderCount > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        error: "Cannot delete user with order history",
+        suggestion: "Use ?force=true to delete user and all related orders",
+        orderCount: orderCount
+      });
+    }
+    
+    // Delete cart items first (if any)
+    await client.query('DELETE FROM cart_items WHERE user_id = $1', [id]);
+    
+    // Delete the user
+    const result = await client.query('DELETE FROM users WHERE user_id = $1 RETURNING *', [id]);
+    
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    await client.query('COMMIT');
     res.json({ message: "User deleted successfully" });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Delete user error:', err);
-    res.status(500).json({ error: "Failed to delete user" });
+    res.status(500).json({ error: "Failed to delete user: " + err.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Check deletion constraints before deleting
+app.get("/api/admin/check-delete/:type/:id", async (req, res) => {
+  const { type, id } = req.params;
+  
+  try {
+    let canDelete = true;
+    let dependencies = [];
+    let message = "";
+    
+    if (type === 'album') {
+      const [orders, carts] = await Promise.all([
+        mainDB.query('SELECT COUNT(*) as count FROM order_items WHERE album_id = $1', [id]),
+        mainDB.query('SELECT COUNT(*) as count FROM cart_items WHERE album_id = $1', [id])
+      ]);
+      
+      const orderCount = parseInt(orders.rows[0].count);
+      const cartCount = parseInt(carts.rows[0].count);
+      
+      if (orderCount > 0) {
+        canDelete = false;
+        dependencies.push(`${orderCount} order(s)`);
+      }
+      if (cartCount > 0) {
+        dependencies.push(`${cartCount} cart item(s) (will be removed)`);
+      }
+      
+      message = canDelete 
+        ? cartCount > 0 
+          ? "Album can be deleted. Cart items will be removed automatically."
+          : "Album can be deleted safely."
+        : `Cannot delete: Album has ${orderCount} associated order(s).`;
+        
+    } else if (type === 'artist') {
+      const albums = await mainDB.query('SELECT COUNT(*) as count FROM albums WHERE artist_id = $1', [id]);
+      const albumCount = parseInt(albums.rows[0].count);
+      
+      if (albumCount > 0) {
+        canDelete = false;
+        dependencies.push(`${albumCount} album(s)`);
+        message = `Cannot delete: Artist has ${albumCount} album(s). Delete or reassign albums first.`;
+      } else {
+        message = "Artist can be deleted safely.";
+      }
+      
+    } else if (type === 'company') {
+      const artists = await mainDB.query('SELECT COUNT(*) as count FROM artists WHERE company_id = $1', [id]);
+      const artistCount = parseInt(artists.rows[0].count);
+      
+      if (artistCount > 0) {
+        canDelete = false;
+        dependencies.push(`${artistCount} artist(s)`);
+        message = `Cannot delete: Company has ${artistCount} artist(s). Delete or reassign artists first.`;
+      } else {
+        message = "Company can be deleted safely.";
+      }
+      
+    } else if (type === 'user') {
+      const [orders, carts] = await Promise.all([
+        mainDB.query('SELECT COUNT(*) as count FROM orders WHERE user_id = $1', [id]),
+        mainDB.query('SELECT COUNT(*) as count FROM cart_items WHERE user_id = $1', [id])
+      ]);
+      
+      const orderCount = parseInt(orders.rows[0].count);
+      const cartCount = parseInt(carts.rows[0].count);
+      
+      if (orderCount > 0) {
+        canDelete = false;
+        dependencies.push(`${orderCount} order(s)`);
+      }
+      if (cartCount > 0) {
+        dependencies.push(`${cartCount} cart item(s) (will be removed)`);
+      }
+      
+      message = canDelete 
+        ? cartCount > 0 
+          ? "User can be deleted. Cart items will be removed automatically."
+          : "User can be deleted safely."
+        : `Cannot delete: User has ${orderCount} order(s) in history.`;
+    }
+    
+    res.json({ canDelete, dependencies, message });
+  } catch (err) {
+    console.error('Check delete error:', err);
+    res.status(500).json({ error: "Failed to check deletion constraints" });
   }
 });
 
