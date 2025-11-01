@@ -1,7 +1,11 @@
 ﻿import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import './Reports.css';
 
 function Reports() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  
   const [loading, setLoading] = useState(true);
   const [salesByCompany, setSalesByCompany] = useState([]);
   const [salesByArtist, setSalesByArtist] = useState([]);
@@ -9,6 +13,18 @@ function Reports() {
   const [salesByStatus, setSalesByStatus] = useState([]);
   const [salesTrends, setSalesTrends] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
+
+  // SLICE parameters
+  const [sliceDimension, setSliceDimension] = useState('status');
+  
+  // DICE parameters
+  const [diceFilters, setDiceFilters] = useState({
+    startDate: '',
+    endDate: '',
+    status: '',
+    minPrice: '',
+    maxPrice: ''
+  });
 
   useEffect(() => {
     fetchAllReports();
@@ -82,22 +98,24 @@ function Reports() {
   return (
     <div className="reports-page">
       <div className="reports-header">
-        <h1>Sales Analytics Dashboard</h1>
-        <p>Comprehensive OLAP Analysis & Business Intelligence</p>
+        <h1>{isAdmin ? 'Sales Analytics Dashboard' : 'Popular Albums & Trends'}</h1>
+        <p>{isAdmin ? 'Comprehensive OLAP Analysis & Business Intelligence' : 'Discover trending albums and popular artists'}</p>
       </div>
 
       <div className="summary-cards">
-        <div className="summary-card purple">
-          <div className="card-icon"></div>
-          <div className="card-content">
-            <h3>Total Revenue</h3>
-            <p className="card-value">{formatCurrency(totalRevenue)}</p>
+        {isAdmin && (
+          <div className="summary-card purple">
+            <div className="card-icon"></div>
+            <div className="card-content">
+              <h3>Total Revenue</h3>
+              <p className="card-value">{formatCurrency(totalRevenue)}</p>
+            </div>
           </div>
-        </div>
+        )}
         <div className="summary-card blue">
           <div className="card-icon"></div>
           <div className="card-content">
-            <h3>Total Orders</h3>
+            <h3>{isAdmin ? 'Total Orders' : 'Orders Processed'}</h3>
             <p className="card-value">{totalOrders}</p>
           </div>
         </div>
@@ -115,25 +133,37 @@ function Reports() {
             <p className="card-value">{salesByCompany.length}</p>
           </div>
         </div>
+        {!isAdmin && (
+          <div className="summary-card purple">
+            <div className="card-icon"></div>
+            <div className="card-content">
+              <h3>Top Artists</h3>
+              <p className="card-value">{salesByArtist.length}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="report-section">
         <div className="section-header">
-          <h2> ROLL UP: Sales by Company</h2>
-          <p>Hierarchical aggregation at company level</p>
+          <h2> {isAdmin ? 'ROLL UP: Sales by Company' : 'Popular Companies'}</h2>
+          <p>{isAdmin ? 'Hierarchical aggregation at company level' : 'Companies ranked by popularity'}</p>
         </div>
         <div className="chart-container">
           {salesByCompany.map((company, idx) => {
-            const maxRevenue = getMaxValue(salesByCompany, 'total_revenue');
+            const maxValue = isAdmin ? getMaxValue(salesByCompany, 'total_revenue') : getMaxValue(salesByCompany, 'total_orders');
+            const barValue = isAdmin ? company.total_revenue : company.total_orders;
             return (
               <div key={idx} className="bar-item">
                 <div className="bar-label">
                   <span className="label-text">{company.company_name}</span>
-                  <span className="label-value">{formatCurrency(company.total_revenue)}</span>
+                  <span className="label-value">
+                    {isAdmin ? formatCurrency(company.total_revenue) : `${company.total_orders} orders`}
+                  </span>
                 </div>
                 <div className="bar-track">
-                  <div className="bar-fill purple-bar" style={{width: getBarWidth(company.total_revenue, maxRevenue)}}>
-                    <span className="bar-text">{company.total_orders} orders</span>
+                  <div className="bar-fill purple-bar" style={{width: getBarWidth(barValue, maxValue)}}>
+                    <span className="bar-text">{company.total_units_sold} albums sold</span>
                   </div>
                 </div>
               </div>
@@ -144,12 +174,13 @@ function Reports() {
 
       <div className="report-section">
         <div className="section-header">
-          <h2> ROLL UP: Top Performing Artists</h2>
-          <p>Sales performance by artist across all companies</p>
+          <h2> {isAdmin ? 'ROLL UP: Top Performing Artists' : 'Most Popular Artists'}</h2>
+          <p>{isAdmin ? 'Sales performance by artist across all companies' : 'Artists ranked by album sales'}</p>
         </div>
         <div className="chart-container">
           {salesByArtist.slice(0, 10).map((artist, idx) => {
-            const maxRevenue = getMaxValue(salesByArtist, 'total_revenue');
+            const maxValue = isAdmin ? getMaxValue(salesByArtist, 'total_revenue') : getMaxValue(salesByArtist, 'total_units_sold');
+            const barValue = isAdmin ? artist.total_revenue : artist.total_units_sold;
             return (
               <div key={idx} className="bar-item">
                 <div className="bar-label">
@@ -157,11 +188,13 @@ function Reports() {
                     <strong>{artist.artist_name}</strong>
                     <small> ({artist.company_name})</small>
                   </span>
-                  <span className="label-value">{formatCurrency(artist.total_revenue)}</span>
+                  <span className="label-value">
+                    {isAdmin ? formatCurrency(artist.total_revenue) : `${artist.total_units_sold} albums`}
+                  </span>
                 </div>
                 <div className="bar-track">
-                  <div className="bar-fill blue-bar" style={{width: getBarWidth(artist.total_revenue, maxRevenue)}}>
-                    <span className="bar-text">{artist.total_units_sold} units</span>
+                  <div className="bar-fill blue-bar" style={{width: getBarWidth(barValue, maxValue)}}>
+                    <span className="bar-text">{artist.total_orders} orders</span>
                   </div>
                 </div>
               </div>
@@ -172,8 +205,8 @@ function Reports() {
 
       <div className="report-section">
         <div className="section-header">
-          <h2> DRILL DOWN: Best-Selling Albums</h2>
-          <p>Most detailed level - individual album performance</p>
+          <h2> {isAdmin ? 'DRILL DOWN: Best-Selling Albums' : 'Top Albums'}</h2>
+          <p>{isAdmin ? 'Most detailed level - individual album performance' : 'Most popular albums by sales volume'}</p>
         </div>
         <div className="table-wrapper">
           <table>
@@ -184,8 +217,8 @@ function Reports() {
                 <th>Artist</th>
                 <th>Company</th>
                 <th>Orders</th>
-                <th>Units</th>
-                <th>Revenue</th>
+                <th>Units Sold</th>
+                {isAdmin && <th>Revenue</th>}
               </tr>
             </thead>
             <tbody>
@@ -197,7 +230,7 @@ function Reports() {
                   <td>{album.company_name}</td>
                   <td>{album.total_orders}</td>
                   <td>{album.total_units_sold}</td>
-                  <td className="revenue-cell">{formatCurrency(album.total_revenue)}</td>
+                  {isAdmin && <td className="revenue-cell">{formatCurrency(album.total_revenue)}</td>}
                 </tr>
               ))}
             </tbody>
@@ -205,39 +238,41 @@ function Reports() {
         </div>
       </div>
 
-      <div className="report-section">
-        <div className="section-header">
-          <h2> SLICE: Sales by Order Status</h2>
-          <p>Single dimension analysis - filtering by order status</p>
-        </div>
-        <div className="status-grid">
-          {salesByStatus.map((status, idx) => (
-            <div key={idx} className="status-card">
-              <div className={`status-indicator ${status.status.toLowerCase()}`}></div>
-              <h3>{status.status}</h3>
-              <div className="status-stats">
-                <div className="stat-item">
-                  <span className="stat-label">Orders</span>
-                  <span className="stat-value">{status.total_orders}</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">Revenue</span>
-                  <span className="stat-value">{formatCurrency(status.total_revenue)}</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">Avg Value</span>
-                  <span className="stat-value">{formatCurrency(status.avg_order_value)}</span>
+      {isAdmin && (
+        <div className="report-section">
+          <div className="section-header">
+            <h2> SLICE: Sales by Order Status</h2>
+            <p>Single dimension analysis - filtering by order status</p>
+          </div>
+          <div className="status-grid">
+            {salesByStatus.map((status, idx) => (
+              <div key={idx} className="status-card">
+                <div className={`status-indicator ${status.status.toLowerCase()}`}></div>
+                <h3>{status.status}</h3>
+                <div className="status-stats">
+                  <div className="stat-item">
+                    <span className="stat-label">Orders</span>
+                    <span className="stat-value">{status.total_orders}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Revenue</span>
+                    <span className="stat-value">{formatCurrency(status.total_revenue)}</span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">Avg Value</span>
+                    <span className="stat-value">{formatCurrency(status.avg_order_value)}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="report-section">
         <div className="section-header">
-          <h2> TIME SERIES: Sales Trends (Last 30 Days)</h2>
-          <p>Daily sales performance and order volume trends</p>
+          <h2> {isAdmin ? 'TIME SERIES: Sales Trends (Last 30 Days)' : 'Activity Trends (Last 30 Days)'}</h2>
+          <p>{isAdmin ? 'Daily sales performance and order volume trends' : 'Daily order activity and purchase trends'}</p>
         </div>
         <div className="trend-chart">
           {salesTrends.map((trend, idx) => {
@@ -247,19 +282,21 @@ function Reports() {
               <div key={idx} className="trend-item">
                 <div className="trend-date">{formatDate(trend.date)}</div>
                 <div className="trend-bars">
-                  <div className="trend-bar-group">
-                    <div className="trend-bar-label">Revenue</div>
-                    <div className="trend-bar-track">
-                      <div className="trend-bar-fill green-bar" style={{width: getBarWidth(trend.revenue, maxRevenue)}}></div>
+                  {isAdmin && (
+                    <div className="trend-bar-group">
+                      <div className="trend-bar-label">Revenue</div>
+                      <div className="trend-bar-track">
+                        <div className="trend-bar-fill green-bar" style={{width: getBarWidth(trend.revenue, maxRevenue)}}></div>
+                      </div>
+                      <div className="trend-value">{formatCurrency(trend.revenue)}</div>
                     </div>
-                    <div className="trend-value">{formatCurrency(trend.revenue)}</div>
-                  </div>
+                  )}
                   <div className="trend-bar-group">
                     <div className="trend-bar-label">Orders</div>
                     <div className="trend-bar-track">
                       <div className="trend-bar-fill orange-bar" style={{width: getBarWidth(trend.orders, maxOrders)}}></div>
                     </div>
-                    <div className="trend-value">{trend.orders}</div>
+                    <div className="trend-value">{trend.orders} orders</div>
                   </div>
                 </div>
               </div>
@@ -268,42 +305,44 @@ function Reports() {
         </div>
       </div>
 
-      <div className="report-section">
-        <div className="section-header">
-          <h2> DICE: Recent Transaction Details</h2>
-          <p>Multi-dimensional view - Recent orders with all dimensions</p>
-        </div>
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Order ID</th>
-                <th>Date</th>
-                <th>Status</th>
-                <th>Customer</th>
-                <th>Album</th>
-                <th>Artist</th>
-                <th>Qty</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentOrders.map((order, idx) => (
-                <tr key={idx}>
-                  <td>#{order.order_id}</td>
-                  <td>{formatDate(order.order_date)}</td>
-                  <td><span className={`status-badge ${order.status.toLowerCase()}`}>{order.status}</span></td>
-                  <td>{order.username}</td>
-                  <td>{order.album_title}</td>
-                  <td>{order.artist_name}</td>
-                  <td>{order.quantity}</td>
-                  <td className="revenue-cell">{formatCurrency(order.total_amount)}</td>
+      {isAdmin && (
+        <div className="report-section">
+          <div className="section-header">
+            <h2> DICE: Recent Transaction Details</h2>
+            <p>Multi-dimensional view - Recent orders with all dimensions</p>
+          </div>
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Customer</th>
+                  <th>Album</th>
+                  <th>Artist</th>
+                  <th>Qty</th>
+                  <th>Amount</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {recentOrders.map((order, idx) => (
+                  <tr key={idx}>
+                    <td>#{order.order_id}</td>
+                    <td>{formatDate(order.order_date)}</td>
+                    <td><span className={`status-badge ${order.status.toLowerCase()}`}>{order.status}</span></td>
+                    <td>{order.username}</td>
+                    <td>{order.album_title}</td>
+                    <td>{order.artist_name}</td>
+                    <td>{order.quantity}</td>
+                    <td className="revenue-cell">{formatCurrency(order.total_amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="report-section">
         <div className="section-header">
@@ -314,23 +353,34 @@ function Reports() {
           <div className="insight-card">
             <h4>Top Company</h4>
             <p className="insight-value">{salesByCompany[0]?.company_name || 'N/A'}</p>
-            <p className="insight-subtitle">{formatCurrency(salesByCompany[0]?.total_revenue || 0)}</p>
+            {isAdmin && <p className="insight-subtitle">{formatCurrency(salesByCompany[0]?.total_revenue || 0)}</p>}
+            {!isAdmin && <p className="insight-subtitle">{salesByCompany[0]?.total_orders || 0} orders</p>}
           </div>
           <div className="insight-card">
             <h4>Top Artist</h4>
             <p className="insight-value">{salesByArtist[0]?.artist_name || 'N/A'}</p>
-            <p className="insight-subtitle">{salesByArtist[0]?.total_units_sold || 0} units sold</p>
+            <p className="insight-subtitle">{salesByArtist[0]?.total_units_sold || 0} albums sold</p>
           </div>
           <div className="insight-card">
             <h4>Best Album</h4>
             <p className="insight-value">{salesByAlbum[0]?.album_title || 'N/A'}</p>
-            <p className="insight-subtitle">{formatCurrency(salesByAlbum[0]?.total_revenue || 0)}</p>
+            {isAdmin && <p className="insight-subtitle">{formatCurrency(salesByAlbum[0]?.total_revenue || 0)}</p>}
+            {!isAdmin && <p className="insight-subtitle">{salesByAlbum[0]?.total_units_sold || 0} units</p>}
           </div>
-          <div className="insight-card">
-            <h4>Avg Order Value</h4>
-            <p className="insight-value">{formatCurrency(totalRevenue / totalOrders)}</p>
-            <p className="insight-subtitle">Across all orders</p>
-          </div>
+          {isAdmin && (
+            <div className="insight-card">
+              <h4>Avg Order Value</h4>
+              <p className="insight-value">{formatCurrency(totalRevenue / totalOrders)}</p>
+              <p className="insight-subtitle">Across all orders</p>
+            </div>
+          )}
+          {!isAdmin && (
+            <div className="insight-card">
+              <h4>Total Albums</h4>
+              <p className="insight-value">{salesByAlbum.length}</p>
+              <p className="insight-subtitle">Available titles</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
