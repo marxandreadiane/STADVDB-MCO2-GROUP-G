@@ -16,6 +16,7 @@ function Reports() {
 
   // SLICE parameters
   const [sliceDimension, setSliceDimension] = useState('status');
+  const [sliceLoading, setSliceLoading] = useState(false);
   
   // DICE parameters
   const [diceFilters, setDiceFilters] = useState({
@@ -25,10 +26,29 @@ function Reports() {
     minPrice: '',
     maxPrice: ''
   });
+  const [diceLoading, setDiceLoading] = useState(false);
 
   useEffect(() => {
     fetchAllReports();
   }, []);
+
+  // Auto-fetch when SLICE dimension changes
+  useEffect(() => {
+    if (!loading) {
+      fetchSliceData();
+    }
+  }, [sliceDimension]);
+
+  // Auto-fetch when DICE filters change (with debounce for text inputs)
+  useEffect(() => {
+    if (!loading) {
+      const debounceTimer = setTimeout(() => {
+        fetchDiceData();
+      }, 500); // Wait 500ms after user stops typing
+
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [diceFilters]);
 
   const fetchAllReports = async () => {
     setLoading(true);
@@ -37,9 +57,9 @@ function Reports() {
         fetch('http://localhost:5000/api/reports/rollup-sales?level=company'),
         fetch('http://localhost:5000/api/reports/rollup-sales?level=artist'),
         fetch('http://localhost:5000/api/reports/rollup-sales?level=album'),
-        fetch('http://localhost:5000/api/reports/slice/status'),
+        fetch(`http://localhost:5000/api/reports/slice/${sliceDimension}`),
         fetch('http://localhost:5000/api/reports/sales-trends'),
-        fetch('http://localhost:5000/api/reports/dice')
+        fetch(buildDiceUrl())
       ]);
 
       const [companyData, artistData, albumData, statusData, trendsData, recentData] = await Promise.all(
@@ -57,6 +77,56 @@ function Reports() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const buildDiceUrl = () => {
+    const params = new URLSearchParams();
+    if (diceFilters.startDate) params.append('startDate', diceFilters.startDate);
+    if (diceFilters.endDate) params.append('endDate', diceFilters.endDate);
+    if (diceFilters.status) params.append('status', diceFilters.status);
+    if (diceFilters.minPrice) params.append('minPrice', diceFilters.minPrice);
+    if (diceFilters.maxPrice) params.append('maxPrice', diceFilters.maxPrice);
+    
+    const queryString = params.toString();
+    return `http://localhost:5000/api/reports/dice${queryString ? '?' + queryString : ''}`;
+  };
+
+  const fetchSliceData = async () => {
+    setSliceLoading(true);
+    try {
+      const response = await fetch(`http://localhost:5000/api/reports/slice/${sliceDimension}`);
+      const data = await response.json();
+      setSalesByStatus(data);
+    } catch (err) {
+      console.error('Error fetching slice data:', err);
+    } finally {
+      setSliceLoading(false);
+    }
+  };
+
+  const fetchDiceData = async () => {
+    setDiceLoading(true);
+    try {
+      const response = await fetch(buildDiceUrl());
+      const data = await response.json();
+      setRecentOrders(data.slice(0, 15));
+    } catch (err) {
+      console.error('Error fetching dice data:', err);
+    } finally {
+      setDiceLoading(false);
+    }
+  };
+
+  const handleSliceChange = (dimension) => {
+    setSliceDimension(dimension);
+  };
+
+  const handleDiceFilterChange = (field, value) => {
+    setDiceFilters(prev => ({ ...prev, [field]: value }));
+  };
+
+  const applyFilters = () => {
+    fetchAllReports();
   };
 
   const formatCurrency = (amount) => {
@@ -241,14 +311,28 @@ function Reports() {
       {isAdmin && (
         <div className="report-section">
           <div className="section-header">
-            <h2> SLICE: Sales by Order Status</h2>
-            <p>Single dimension analysis - filtering by order status</p>
+            <h2>🔪 SLICE: Sales by Dimension</h2>
+            <p>Single dimension analysis - select a dimension to analyze</p>
           </div>
-          <div className="status-grid">
+          
+          <div className="filter-controls">
+            <div className="filter-group">
+              <label>Slice by:</label>
+              <select value={sliceDimension} onChange={(e) => handleSliceChange(e.target.value)}>
+                <option value="status">Order Status</option>
+                <option value="time">Time Period</option>
+                <option value="company">Company</option>
+                <option value="artist">Artist</option>
+              </select>
+            </div>
+            {sliceLoading && <span style={{color: '#667eea', marginLeft: '1rem'}}>⟳ Updating...</span>}
+          </div>
+
+          <div className="status-grid" style={{opacity: sliceLoading ? 0.5 : 1, transition: 'opacity 0.3s'}}>
             {salesByStatus.map((status, idx) => (
               <div key={idx} className="status-card">
-                <div className={`status-indicator ${status.status.toLowerCase()}`}></div>
-                <h3>{status.status}</h3>
+                <div className={`status-indicator ${sliceDimension === 'status' ? status.status?.toLowerCase() : ''}`}></div>
+                <h3>{status[sliceDimension === 'status' ? 'status' : sliceDimension === 'time' ? 'period' : sliceDimension === 'company' ? 'company_name' : 'artist_name']}</h3>
                 <div className="status-stats">
                   <div className="stat-item">
                     <span className="stat-label">Orders</span>
@@ -311,35 +395,94 @@ function Reports() {
             <h2> DICE: Recent Transaction Details</h2>
             <p>Multi-dimensional view - Recent orders with all dimensions</p>
           </div>
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Date</th>
-                  <th>Status</th>
-                  <th>Customer</th>
-                  <th>Album</th>
-                  <th>Artist</th>
-                  <th>Qty</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentOrders.map((order, idx) => (
-                  <tr key={idx}>
-                    <td>#{order.order_id}</td>
-                    <td>{formatDate(order.order_date)}</td>
-                    <td><span className={`status-badge ${order.status.toLowerCase()}`}>{order.status}</span></td>
-                    <td>{order.username}</td>
-                    <td>{order.album_title}</td>
-                    <td>{order.artist_name}</td>
-                    <td>{order.quantity}</td>
-                    <td className="revenue-cell">{formatCurrency(order.total_amount)}</td>
+          
+          <div className="dice-filters">
+            <div className="filter-group">
+              <label>Start Date</label>
+              <input 
+                type="date" 
+                value={diceFilters.startDate}
+                onChange={(e) => handleDiceFilterChange('startDate', e.target.value)}
+              />
+            </div>
+            <div className="filter-group">
+              <label>End Date</label>
+              <input 
+                type="date" 
+                value={diceFilters.endDate}
+                onChange={(e) => handleDiceFilterChange('endDate', e.target.value)}
+              />
+            </div>
+            <div className="filter-group">
+              <label>Status</label>
+              <select 
+                value={diceFilters.status}
+                onChange={(e) => handleDiceFilterChange('status', e.target.value)}
+              >
+                <option value="">All Statuses</option>
+                <option value="PENDING">Pending</option>
+                <option value="PAID">Paid</option>
+                <option value="SHIPPED">Shipped</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+            <div className="filter-group">
+              <label>Min Price</label>
+              <input 
+                type="number" 
+                placeholder="0.00"
+                value={diceFilters.minPrice}
+                onChange={(e) => handleDiceFilterChange('minPrice', e.target.value)}
+              />
+            </div>
+            <div className="filter-group">
+              <label>Max Price</label>
+              <input 
+                type="number" 
+                placeholder="9999.99"
+                value={diceFilters.maxPrice}
+                onChange={(e) => handleDiceFilterChange('maxPrice', e.target.value)}
+              />
+            </div>
+            {diceLoading && <span style={{color: '#667eea', marginLeft: 'auto', alignSelf: 'center'}}>⟳ Filtering...</span>}
+          </div>
+
+          <div className="table-wrapper" style={{opacity: diceLoading ? 0.5 : 1, transition: 'opacity 0.3s'}}>
+            {recentOrders.length > 0 ? (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Customer</th>
+                    <th>Album</th>
+                    <th>Artist</th>
+                    <th>Qty</th>
+                    <th>Amount</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {recentOrders.map((order, idx) => (
+                    <tr key={idx}>
+                      <td>#{order.order_id}</td>
+                      <td>{formatDate(order.order_date)}</td>
+                      <td><span className={`status-badge ${order.status.toLowerCase()}`}>{order.status}</span></td>
+                      <td>{order.username}</td>
+                      <td>{order.album_title}</td>
+                      <td>{order.artist_name}</td>
+                      <td>{order.quantity}</td>
+                      <td className="revenue-cell">{formatCurrency(order.total_amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty-state">
+                <p>No orders found matching the selected filters.</p>
+              </div>
+            )}
           </div>
         </div>
       )}

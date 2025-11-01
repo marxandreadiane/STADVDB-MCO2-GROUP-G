@@ -708,6 +708,133 @@ td {
   color: white;
 }
 
+.filter-controls {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  padding: 1.5rem;
+  background: #f9f9f9;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-controls .filter-group {
+  flex: 1;
+  min-width: 150px;
+}
+
+.filter-controls .filter-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.filter-controls select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #333;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-controls select:hover {
+  border-color: #667eea;
+}
+
+.filter-controls select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.dice-filters {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  padding: 1.5rem;
+  background: #f9f9f9;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.dice-filters .filter-group {
+  flex: 1;
+  min-width: 150px;
+}
+
+.dice-filters .filter-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.dice-filters input,
+.dice-filters select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #333;
+  background: white;
+  transition: all 0.3s ease;
+}
+
+.dice-filters input:hover,
+.dice-filters select:hover {
+  border-color: #667eea;
+}
+
+.dice-filters input:focus,
+.dice-filters select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.apply-btn {
+  padding: 0.75rem 2rem;
+  border: none;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.apply-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.apply-btn:active {
+  transform: translateY(0);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #999;
+}
+
+.empty-state p {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
 @media (max-width: 1024px) {
   .dice-controls {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -768,5 +895,21 @@ td {
 
   table {
     font-size: 0.9rem;
+  }
+
+  .filter-controls,
+  .dice-filters {
+    flex-direction: column;
+    padding: 1rem;
+  }
+
+  .filter-controls .filter-group,
+  .dice-filters .filter-group {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .apply-btn {
+    width: 100%;
   }
 }
