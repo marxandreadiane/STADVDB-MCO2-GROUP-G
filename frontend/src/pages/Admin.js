@@ -304,26 +304,26 @@ function Admin() {
   return (
     <div className="admin-page">
       <div className="admin-header">
-        <h1>🛡️ Admin Dashboard</h1>
+        <h1>Admin Dashboard</h1>
         <p>Manage your store</p>
       </div>
 
       {/* TAB NAVIGATION */}
       <div className="admin-tabs">
         <button className={activeTab === 'orders' ? 'active' : ''} onClick={() => setActiveTab('orders')}>
-          📦 Orders
+          Orders
         </button>
         <button className={activeTab === 'albums' ? 'active' : ''} onClick={() => setActiveTab('albums')}>
-          💿 Albums
+          Albums
         </button>
         <button className={activeTab === 'artists' ? 'active' : ''} onClick={() => setActiveTab('artists')}>
-          🎤 Artists
+          Artists
         </button>
         <button className={activeTab === 'companies' ? 'active' : ''} onClick={() => setActiveTab('companies')}>
-          🏢 Companies
+          Companies
         </button>
         <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>
-          👥 Users
+          Users
         </button>
       </div>
 
@@ -419,7 +419,7 @@ function Admin() {
         <>
           <div className="crud-header">
             <h2>Albums Management</h2>
-            <button className="btn-create" onClick={openCreateModal}>➕ Add Album</button>
+            <button className="btn-create" onClick={openCreateModal}>Add Album</button>
           </div>
           <div className="crud-table-container">
             <table className="crud-table">
@@ -444,8 +444,8 @@ function Admin() {
                     <td>{album.stock_quantity}</td>
                     <td>{new Date(album.release_date).toLocaleDateString()}</td>
                     <td>
-                      <button className="btn-edit" onClick={() => openEditModal(album)}>✏️ Edit</button>
-                      <button className="btn-delete" onClick={() => handleDelete(album)}>🗑️ Delete</button>
+                      <button className="btn-edit" onClick={() => openEditModal(album)}>Edit</button>
+                      <button className="btn-delete" onClick={() => handleDelete(album)}>Delete</button>
                     </td>
                   </tr>
                 ))}
@@ -461,7 +461,7 @@ function Admin() {
         <>
           <div className="crud-header">
             <h2>Artists Management</h2>
-            <button className="btn-create" onClick={openCreateModal}>➕ Add Artist</button>
+            <button className="btn-create" onClick={openCreateModal}>Add Artist</button>
           </div>
           <div className="crud-table-container">
             <table className="crud-table">
@@ -484,8 +484,8 @@ function Admin() {
                     <td>{new Date(artist.debut_date).toLocaleDateString()}</td>
                     <td>{artist.country}</td>
                     <td>
-                      <button className="btn-edit" onClick={() => openEditModal(artist)}>✏️ Edit</button>
-                      <button className="btn-delete" onClick={() => handleDelete(artist)}>🗑️ Delete</button>
+                      <button className="btn-edit" onClick={() => openEditModal(artist)}>Edit</button>
+                      <button className="btn-delete" onClick={() => handleDelete(artist)}>Delete</button>
                     </td>
                   </tr>
                 ))}
@@ -501,7 +501,7 @@ function Admin() {
         <>
           <div className="crud-header">
             <h2>Companies Management</h2>
-            <button className="btn-create" onClick={openCreateModal}>➕ Add Company</button>
+            <button className="btn-create" onClick={openCreateModal}>Add Company</button>
           </div>
           <div className="crud-table-container">
             <table className="crud-table">
@@ -522,8 +522,8 @@ function Admin() {
                     <td>{company.country}</td>
                     <td>{company.founded_year}</td>
                     <td>
-                      <button className="btn-edit" onClick={() => openEditModal(company)}>✏️ Edit</button>
-                      <button className="btn-delete" onClick={() => handleDelete(company)}>🗑️ Delete</button>
+                      <button className="btn-edit" onClick={() => openEditModal(company)}>Edit</button>
+                      <button className="btn-delete" onClick={() => handleDelete(company)}>Delete</button>
                     </td>
                   </tr>
                 ))}
@@ -539,7 +539,7 @@ function Admin() {
         <>
           <div className="crud-header">
             <h2>Users Management</h2>
-            <button className="btn-create" onClick={openCreateModal}>➕ Add User</button>
+            <button className="btn-create" onClick={openCreateModal}>Add User</button>
           </div>
           <div className="crud-table-container">
             <table className="crud-table">
@@ -564,8 +564,8 @@ function Admin() {
                       <span className={`role-badge role-${usr.role}`}>{usr.role}</span>
                     </td>
                     <td>
-                      <button className="btn-edit" onClick={() => openEditModal(usr)}>✏️ Edit</button>
-                      <button className="btn-delete" onClick={() => handleDelete(usr)}>🗑️ Delete</button>
+                      <button className="btn-edit" onClick={() => openEditModal(usr)}>Edit</button>
+                      <button className="btn-delete" onClick={() => handleDelete(usr)}>Delete</button>
                     </td>
                   </tr>
                 ))}
@@ -719,8 +719,8 @@ function Admin() {
               )}
             </div>
             <div className="modal-actions">
-              <button className="btn-save" onClick={handleSave}>💾 Save</button>
-              <button className="btn-cancel" onClick={() => setShowModal(false)}>❌ Cancel</button>
+              <button className="btn-save" onClick={handleSave}>Save</button>
+              <button className="btn-cancel" onClick={() => setShowModal(false)}>Cancel</button>
             </div>
           </div>
         </div>

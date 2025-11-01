@@ -24,6 +24,10 @@ function Albums() {
   const [companies, setCompanies] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   useEffect(() => {
     fetchAlbums();
@@ -56,6 +60,7 @@ function Albums() {
       ...filters,
       [filterType]: value
     });
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
   const clearFilters = () => {
@@ -65,6 +70,7 @@ function Albums() {
       sortBy: 'newest'
     });
     setSearchQuery('');
+    setCurrentPage(1); // Reset to first page
   };
 
   const getFilteredAndSortedAlbums = () => {
@@ -171,12 +177,52 @@ function Albums() {
 
   const filteredAlbums = getFilteredAndSortedAlbums();
   const hasActiveFilters = filters.artist || filters.company || filters.sortBy !== 'newest' || searchQuery;
+  
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredAlbums.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentAlbums = filteredAlbums.slice(startIndex, endIndex);
+  
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5; // Maximum number of page buttons to show
+    
+    if (totalPages <= maxVisible) {
+      // Show all pages if total is less than max
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+      
+      if (currentPage > 3) {
+        pages.push('...');
+      }
+      
+      // Show pages around current page
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+        pages.push(i);
+      }
+      
+      if (currentPage < totalPages - 2) {
+        pages.push('...');
+      }
+      
+      // Always show last page
+      pages.push(totalPages);
+    }
+    
+    return pages;
+  };
 
   return (
     <div className="albums">
       <div className="albums-header">
-        <h1>📀 Album Collection</h1>
-        <p>Browse our collection of {albums.length} authentic K-Pop albums</p>
+        <h1>Album Collection</h1>
+        <p>Browse our collection of authentic K-Pop albums</p>
       </div>
 
       {/* Search and Filter Bar */}
@@ -184,7 +230,7 @@ function Albums() {
         <div className="search-box">
           <input
             type="text"
-            placeholder="🔍 Search albums, artists, companies..."
+            placeholder="Search albums, artists, companies..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
@@ -195,7 +241,7 @@ function Albums() {
           className={`filter-toggle-btn ${showFilters ? 'active' : ''}`}
           onClick={() => setShowFilters(!showFilters)}
         >
-          🎛️ Filters {hasActiveFilters && <span className="filter-badge">•</span>}
+          Filters {hasActiveFilters && <span className="filter-badge">•</span>}
         </button>
 
         {hasActiveFilters && (
@@ -210,7 +256,7 @@ function Albums() {
         <div className="filters-container">
           <div className="filters-row">
             <div className="filter-group">
-              <label>🎤 Artist:</label>
+              <label>Artist:</label>
               <select 
                 value={filters.artist} 
                 onChange={(e) => handleFilterChange('artist', e.target.value)}
@@ -223,7 +269,7 @@ function Albums() {
             </div>
 
             <div className="filter-group">
-              <label>🏢 Company:</label>
+              <label>Company:</label>
               <select 
                 value={filters.company} 
                 onChange={(e) => handleFilterChange('company', e.target.value)}
@@ -236,7 +282,7 @@ function Albums() {
             </div>
 
             <div className="filter-group">
-              <label>🔽 Sort By:</label>
+              <label>Sort By:</label>
               <select 
                 value={filters.sortBy} 
                 onChange={(e) => handleFilterChange('sortBy', e.target.value)}
@@ -253,11 +299,12 @@ function Albums() {
       )}
 
       <div className="filter-results">
-        Showing {filteredAlbums.length} of {albums.length} albums
+        Showing {startIndex + 1}-{Math.min(endIndex, filteredAlbums.length)} of {filteredAlbums.length} albums
+        {filteredAlbums.length > 0 && <span style={{ marginLeft: '1rem', color: '#999' }}>({totalPages} {totalPages === 1 ? 'page' : 'pages'})</span>}
       </div>
 
       <div className="albums-grid">
-        {filteredAlbums.map((album) => {
+        {currentAlbums.map((album) => {
           const quantity = getAlbumQuantity(album.album_id);
           
           return (
@@ -278,9 +325,9 @@ function Albums() {
                 
                 {/* Stock Indicator */}
                 <p className={`stock-indicator ${album.stock_quantity === 0 ? 'out-of-stock' : album.stock_quantity < 10 ? 'low-stock' : 'in-stock'}`}>
-                  {album.stock_quantity === 0 ? '❌ Out of Stock' : 
-                   album.stock_quantity < 10 ? `⚠️ Only ${album.stock_quantity} left` : 
-                   `✅ ${album.stock_quantity} in stock`}
+                  {album.stock_quantity === 0 ? 'Out of Stock' : 
+                   album.stock_quantity < 10 ? `Only ${album.stock_quantity} left` : 
+                   `${album.stock_quantity} in stock`}
                 </p>
 
                 <div className="album-footer">
@@ -319,6 +366,44 @@ function Albums() {
           );
         })}
       </div>
+
+      {/* Pagination - Show if more than 1 page OR for testing show always */}
+      {filteredAlbums.length > 0 && (
+        <div className="pagination">
+          <button 
+            className="page-btn prev-btn"
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1 || totalPages <= 1}
+          >
+            ← Prev
+          </button>
+          
+          <div className="page-numbers">
+            {getPageNumbers().map((page, index) => (
+              page === '...' ? (
+                <span key={`ellipsis-${index}`} className="page-ellipsis">...</span>
+              ) : (
+                <button
+                  key={page}
+                  className={`page-number ${currentPage === page ? 'active' : ''}`}
+                  onClick={() => setCurrentPage(page)}
+                  disabled={totalPages <= 1}
+                >
+                  {page}
+                </button>
+              )
+            ))}
+          </div>
+          
+          <button 
+            className="page-btn next-btn"
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages || totalPages <= 1}
+          >
+            Next →
+          </button>
+        </div>
+      )}
 
       <AuthModal 
         isOpen={showAuthModal}

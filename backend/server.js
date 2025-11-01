@@ -154,6 +154,7 @@ app.get("/api/admin/orders", async (req, res) => {
 });
 
 // Update order status (Admin)
+// ⚡ STOCK MANAGEMENT: When admin confirms order (PAID/SHIPPED), stock is decremented
 app.put("/api/admin/orders/:orderId/status", async (req, res) => {
   const { orderId } = req.params;
   const { status } = req.body;
@@ -164,20 +165,93 @@ app.put("/api/admin/orders/:orderId/status", async (req, res) => {
     return res.status(400).json({ error: "Invalid status" });
   }
 
+  const client = await mainDB.connect();
+  
   try {
-    const result = await mainDB.query(
+    await client.query('BEGIN');
+
+    // Get current order status
+    const currentOrder = await client.query(
+      'SELECT status FROM orders WHERE order_id = $1',
+      [orderId]
+    );
+
+    if (currentOrder.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    const currentStatus = currentOrder.rows[0].status;
+
+    // ⚡ If changing from PENDING to PAID or SHIPPED, decrement stock
+    if (currentStatus === 'PENDING' && (status === 'PAID' || status === 'SHIPPED')) {
+      // Get all order items
+      const orderItems = await client.query(
+        'SELECT album_id, quantity FROM order_items WHERE order_id = $1',
+        [orderId]
+      );
+
+      // Decrement stock for each item
+      for (const item of orderItems.rows) {
+        // Check if enough stock is available
+        const stockCheck = await client.query(
+          'SELECT stock_quantity FROM albums WHERE album_id = $1',
+          [item.album_id]
+        );
+
+        if (stockCheck.rows.length === 0) {
+          throw new Error(`Album ${item.album_id} not found`);
+        }
+
+        const availableStock = stockCheck.rows[0].stock_quantity;
+        if (availableStock < item.quantity) {
+          throw new Error(`Insufficient stock for album ${item.album_id}. Available: ${availableStock}, Requested: ${item.quantity}`);
+        }
+
+        // Decrement stock
+        await client.query(
+          'UPDATE albums SET stock_quantity = stock_quantity - $1 WHERE album_id = $2',
+          [item.quantity, item.album_id]
+        );
+      }
+    }
+
+    // ⚡ If changing to CANCELLED and was previously confirmed (PAID/SHIPPED), restore stock
+    if ((currentStatus === 'PAID' || currentStatus === 'SHIPPED') && status === 'CANCELLED') {
+      // Get all order items
+      const orderItems = await client.query(
+        'SELECT album_id, quantity FROM order_items WHERE order_id = $1',
+        [orderId]
+      );
+
+      // Restore stock for each item
+      for (const item of orderItems.rows) {
+        await client.query(
+          'UPDATE albums SET stock_quantity = stock_quantity + $1 WHERE album_id = $2',
+          [item.quantity, item.album_id]
+        );
+      }
+    }
+
+    // Update order status
+    const result = await client.query(
       'UPDATE orders SET status = $1 WHERE order_id = $2 RETURNING *',
       [status, orderId]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Order not found" });
-    }
+    await client.query('COMMIT');
 
-    res.json({ message: "Order status updated", order: result.rows[0] });
+    res.json({ 
+      message: "Order status updated", 
+      order: result.rows[0],
+      stockUpdated: (currentStatus === 'PENDING' && (status === 'PAID' || status === 'SHIPPED')) ? true : false
+    });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Update order status error:', err);
-    res.status(500).json({ error: "Failed to update order status" });
+    res.status(500).json({ error: err.message || "Failed to update order status" });
+  } finally {
+    client.release();
   }
 });
 
@@ -461,38 +535,26 @@ app.post("/api/orders", async (req, res) => {
     );
     const orderId = orderResult.rows[0].order_id;
 
-    // 3. Create order items and decrement stock
-    // ⚡ STOCK MANAGEMENT: This is where stock decrements happen when an order is placed
-    // - Validates stock availability for each item in the order
-    // - Decrements stock_quantity in albums table atomically
-    // - Rolls back entire transaction if any item is out of stock
-    // - Prevents overselling by checking stock before committing
+    // 3. Create order items (stock will be decremented when admin confirms)
+    // ⚡ STOCK MANAGEMENT: Stock is NOT decremented at order placement
+    // - Stock will be decremented when admin confirms the order (changes status to PAID/SHIPPED)
+    // - This prevents stock from being locked for unconfirmed/pending orders
+    // - Admin has control over when inventory is actually committed
     for (const item of items) {
-      // Check if enough stock is available
-      const stockCheck = await client.query(
-        'SELECT stock_quantity FROM albums WHERE album_id = $1',
+      // Validate album exists
+      const albumCheck = await client.query(
+        'SELECT album_id FROM albums WHERE album_id = $1',
         [item.album_id]
       );
 
-      if (stockCheck.rows.length === 0) {
+      if (albumCheck.rows.length === 0) {
         throw new Error(`Album ${item.album_id} not found`);
       }
 
-      const availableStock = stockCheck.rows[0].stock_quantity;
-      if (availableStock < item.quantity) {
-        throw new Error(`Insufficient stock for album ${item.album_id}. Available: ${availableStock}, Requested: ${item.quantity}`);
-      }
-
-      // Insert order item
+      // Insert order item (no stock decrement yet)
       await client.query(
         'INSERT INTO order_items (order_id, album_id, quantity, price) VALUES ($1, $2, $3, $4)',
         [orderId, item.album_id, item.quantity, item.price]
-      );
-
-      // ⚡ Decrement stock quantity - this is the actual inventory update
-      await client.query(
-        'UPDATE albums SET stock_quantity = stock_quantity - $1 WHERE album_id = $2',
-        [item.quantity, item.album_id]
       );
     }
 
@@ -502,11 +564,8 @@ app.post("/api/orders", async (req, res) => {
       [orderId, payment.method, payment.amount, 'COMPLETED']
     );
 
-    // 5. Update order status to PAID
-    await client.query(
-      'UPDATE orders SET status = $1 WHERE order_id = $2',
-      ['PAID', orderId]
-    );
+    // 5. Keep order status as PENDING (admin will confirm later)
+    // Order will remain PENDING until admin reviews and updates the status
 
     // 6. Clear user's cart after successful order
     await client.query(
@@ -785,35 +844,336 @@ app.delete("/api/admin/users/:id", async (req, res) => {
 
 // ========== END ADMIN CRUD ENDPOINTS ==========
 
-// 📊 Sales Report (analytics DB)
-app.get("/api/reports/sales", async (req, res) => {
+// ========================================
+// ========== OLAP REPORTS ENDPOINTS ==========
+// ========================================
+
+// 📊 ROLL UP: Sales aggregated by Company → Artist → Album (hierarchical)
+app.get("/api/reports/rollup-sales", async (req, res) => {
+  const { level } = req.query; // 'company', 'artist', or 'album'
+  
   try {
-    const result = await reportsDB.query(`
-      SELECT company_name, SUM(total_sales) AS total_sales
-      FROM company_sales_report
-      GROUP BY company_name
-    `);
+    let query = '';
+    
+    if (level === 'company') {
+      // Roll up to company level (highest aggregation)
+      query = `
+        SELECT 
+          c.name as company_name,
+          COUNT(DISTINCT o.order_id) as total_orders,
+          SUM(oi.quantity) as total_units_sold,
+          SUM(oi.quantity * oi.price) as total_revenue
+        FROM companies c
+        JOIN artists ar ON c.company_id = ar.company_id
+        JOIN albums al ON ar.artist_id = al.artist_id
+        JOIN order_items oi ON al.album_id = oi.album_id
+        JOIN orders o ON oi.order_id = o.order_id
+        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+        GROUP BY c.company_id, c.name
+        ORDER BY total_revenue DESC
+      `;
+    } else if (level === 'artist') {
+      // Roll up to artist level
+      query = `
+        SELECT 
+          c.name as company_name,
+          ar.name as artist_name,
+          COUNT(DISTINCT o.order_id) as total_orders,
+          SUM(oi.quantity) as total_units_sold,
+          SUM(oi.quantity * oi.price) as total_revenue
+        FROM companies c
+        JOIN artists ar ON c.company_id = ar.company_id
+        JOIN albums al ON ar.artist_id = al.artist_id
+        JOIN order_items oi ON al.album_id = oi.album_id
+        JOIN orders o ON oi.order_id = o.order_id
+        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+        GROUP BY c.company_id, c.name, ar.artist_id, ar.name
+        ORDER BY total_revenue DESC
+      `;
+    } else {
+      // Most detailed level (album)
+      query = `
+        SELECT 
+          c.name as company_name,
+          ar.name as artist_name,
+          al.title as album_title,
+          COUNT(DISTINCT o.order_id) as total_orders,
+          SUM(oi.quantity) as total_units_sold,
+          SUM(oi.quantity * oi.price) as total_revenue
+        FROM companies c
+        JOIN artists ar ON c.company_id = ar.company_id
+        JOIN albums al ON ar.artist_id = al.artist_id
+        JOIN order_items oi ON al.album_id = oi.album_id
+        JOIN orders o ON oi.order_id = o.order_id
+        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+        GROUP BY c.company_id, c.name, ar.artist_id, ar.name, al.album_id, al.title
+        ORDER BY total_revenue DESC
+      `;
+    }
+    
+    const result = await mainDB.query(query);
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch report" });
+    console.error('Roll up error:', err);
+    res.status(500).json({ error: "Failed to fetch rollup report" });
   }
 });
 
-// 🎧 Album popularity report (analytics DB)
-app.get("/api/reports/top-albums", async (req, res) => {
+// 🔍 DRILL DOWN: Start from summary and drill into details
+app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
+  const { type, id } = req.params; // type: 'company' or 'artist', id: entity id
+  
   try {
-    const result = await reportsDB.query(`
-      SELECT album_name, SUM(sales_count) AS total_sales
-      FROM album_sales_report
-      GROUP BY album_name
-      ORDER BY total_sales DESC
-      LIMIT 5
-    `);
+    let query = '';
+    
+    if (type === 'company') {
+      // Drill down from company to see all artists
+      query = `
+        SELECT 
+          ar.artist_id,
+          ar.name as artist_name,
+          ar.fandom_name,
+          COUNT(DISTINCT o.order_id) as total_orders,
+          SUM(oi.quantity) as total_units_sold,
+          SUM(oi.quantity * oi.price) as total_revenue
+        FROM artists ar
+        JOIN albums al ON ar.artist_id = al.artist_id
+        LEFT JOIN order_items oi ON al.album_id = oi.album_id
+        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+        WHERE ar.company_id = $1
+        GROUP BY ar.artist_id, ar.name, ar.fandom_name
+        ORDER BY total_revenue DESC NULLS LAST
+      `;
+    } else if (type === 'artist') {
+      // Drill down from artist to see all albums
+      query = `
+        SELECT 
+          al.album_id,
+          al.title as album_title,
+          al.release_date,
+          al.price,
+          al.stock_quantity,
+          COALESCE(COUNT(DISTINCT o.order_id), 0) as total_orders,
+          COALESCE(SUM(oi.quantity), 0) as total_units_sold,
+          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
+        FROM albums al
+        LEFT JOIN order_items oi ON al.album_id = oi.album_id
+        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+        WHERE al.artist_id = $1
+        GROUP BY al.album_id, al.title, al.release_date, al.price, al.stock_quantity
+        ORDER BY total_revenue DESC
+      `;
+    }
+    
+    const result = await mainDB.query(query, [id]);
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch top albums" });
+    console.error('Drill down error:', err);
+    res.status(500).json({ error: "Failed to fetch drilldown report" });
+  }
+});
+
+// 🎲 DICE: Multi-dimensional filtering (Date Range + Status + Price Range)
+app.get("/api/reports/dice", async (req, res) => {
+  const { startDate, endDate, status, minPrice, maxPrice } = req.query;
+  
+  try {
+    let whereConditions = ['1=1'];
+    let params = [];
+    let paramIndex = 1;
+    
+    if (startDate) {
+      whereConditions.push(`o.order_date >= $${paramIndex}`);
+      params.push(startDate);
+      paramIndex++;
+    }
+    
+    if (endDate) {
+      whereConditions.push(`o.order_date <= $${paramIndex}`);
+      params.push(endDate);
+      paramIndex++;
+    }
+    
+    if (status && status !== 'ALL') {
+      whereConditions.push(`o.status = $${paramIndex}`);
+      params.push(status);
+      paramIndex++;
+    }
+    
+    if (minPrice) {
+      whereConditions.push(`oi.price >= $${paramIndex}`);
+      params.push(minPrice);
+      paramIndex++;
+    }
+    
+    if (maxPrice) {
+      whereConditions.push(`oi.price <= $${paramIndex}`);
+      params.push(maxPrice);
+      paramIndex++;
+    }
+    
+    const query = `
+      SELECT 
+        o.order_id,
+        o.order_date,
+        o.status,
+        u.username,
+        u.email,
+        al.title as album_title,
+        ar.name as artist_name,
+        c.name as company_name,
+        oi.quantity,
+        oi.price,
+        (oi.quantity * oi.price) as total_amount
+      FROM orders o
+      JOIN users u ON o.user_id = u.user_id
+      JOIN order_items oi ON o.order_id = oi.order_id
+      JOIN albums al ON oi.album_id = al.album_id
+      JOIN artists ar ON al.artist_id = ar.artist_id
+      JOIN companies c ON ar.company_id = c.company_id
+      WHERE ${whereConditions.join(' AND ')}
+      ORDER BY o.order_date DESC
+      LIMIT 100
+    `;
+    
+    const result = await mainDB.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Dice error:', err);
+    res.status(500).json({ error: "Failed to fetch dice report" });
+  }
+});
+
+// 🔪 SLICE: Single dimension filtering (e.g., sales for specific time period)
+app.get("/api/reports/slice/:dimension", async (req, res) => {
+  const { dimension } = req.params; // 'time', 'status', 'company', 'artist'
+  const { value } = req.query;
+  
+  try {
+    let query = '';
+    let params = [];
+    
+    if (dimension === 'time') {
+      // Slice by time period (e.g., specific month/year)
+      query = `
+        SELECT 
+          DATE_TRUNC('month', o.order_date) as month,
+          COUNT(DISTINCT o.order_id) as total_orders,
+          SUM(oi.quantity) as total_units_sold,
+          SUM(oi.quantity * oi.price) as total_revenue
+        FROM orders o
+        JOIN order_items oi ON o.order_id = oi.order_id
+        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+          ${value ? `AND DATE_TRUNC('month', o.order_date) = $1` : ''}
+        GROUP BY DATE_TRUNC('month', o.order_date)
+        ORDER BY month DESC
+      `;
+      if (value) params.push(value);
+    } else if (dimension === 'status') {
+      // Slice by order status
+      query = `
+        SELECT 
+          o.status,
+          COUNT(DISTINCT o.order_id) as total_orders,
+          SUM(o.total_amount) as total_revenue,
+          AVG(o.total_amount) as avg_order_value
+        FROM orders o
+        ${value ? `WHERE o.status = $1` : ''}
+        GROUP BY o.status
+        ORDER BY total_orders DESC
+      `;
+      if (value) params.push(value);
+    } else if (dimension === 'company') {
+      // Slice by company
+      query = `
+        SELECT 
+          c.name as company_name,
+          ar.name as artist_name,
+          al.title as album_title,
+          SUM(oi.quantity) as units_sold,
+          SUM(oi.quantity * oi.price) as revenue
+        FROM companies c
+        JOIN artists ar ON c.company_id = ar.company_id
+        JOIN albums al ON ar.artist_id = al.artist_id
+        JOIN order_items oi ON al.album_id = oi.album_id
+        JOIN orders o ON oi.order_id = o.order_id
+        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+          ${value ? `AND c.company_id = $1` : ''}
+        GROUP BY c.name, ar.name, al.title
+        ORDER BY revenue DESC
+      `;
+      if (value) params.push(value);
+    } else if (dimension === 'artist') {
+      // Slice by artist
+      query = `
+        SELECT 
+          ar.name as artist_name,
+          al.title as album_title,
+          al.release_date,
+          SUM(oi.quantity) as units_sold,
+          SUM(oi.quantity * oi.price) as revenue
+        FROM artists ar
+        JOIN albums al ON ar.artist_id = al.artist_id
+        JOIN order_items oi ON al.album_id = oi.album_id
+        JOIN orders o ON oi.order_id = o.order_id
+        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+          ${value ? `AND ar.artist_id = $1` : ''}
+        GROUP BY ar.name, al.title, al.release_date
+        ORDER BY revenue DESC
+      `;
+      if (value) params.push(value);
+    }
+    
+    const result = await mainDB.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Slice error:', err);
+    res.status(500).json({ error: "Failed to fetch slice report" });
+  }
+});
+
+// 📈 Additional: Sales trends over time
+app.get("/api/reports/sales-trends", async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        DATE_TRUNC('day', o.order_date) as date,
+        COUNT(DISTINCT o.order_id) as orders,
+        SUM(oi.quantity) as units,
+        SUM(oi.quantity * oi.price) as revenue
+      FROM orders o
+      JOIN order_items oi ON o.order_id = oi.order_id
+      WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+        AND o.order_date >= NOW() - INTERVAL '30 days'
+      GROUP BY DATE_TRUNC('day', o.order_date)
+      ORDER BY date DESC
+    `;
+    
+    const result = await mainDB.query(query);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Sales trends error:', err);
+    res.status(500).json({ error: "Failed to fetch sales trends" });
+  }
+});
+
+// 📊 Get dimension values for filters
+app.get("/api/reports/dimensions", async (req, res) => {
+  try {
+    const [companies, artists, statuses] = await Promise.all([
+      mainDB.query('SELECT company_id, name FROM companies ORDER BY name'),
+      mainDB.query('SELECT artist_id, name FROM artists ORDER BY name'),
+      mainDB.query('SELECT DISTINCT status FROM orders ORDER BY status')
+    ]);
+    
+    res.json({
+      companies: companies.rows,
+      artists: artists.rows,
+      statuses: statuses.rows.map(r => r.status)
+    });
+  } catch (err) {
+    console.error('Dimensions error:', err);
+    res.status(500).json({ error: "Failed to fetch dimensions" });
   }
 });
 

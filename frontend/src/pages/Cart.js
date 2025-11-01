@@ -27,10 +27,9 @@ function Cart({ onCheckout }) {
     return (
       <div className="cart">
         <div className="cart-header">
-          <h1>🛒 Shopping Cart</h1>
+          <h1>Shopping Cart</h1>
         </div>
         <div className="empty-cart">
-          <span className="empty-icon">🛍️</span>
           <h2>Your cart is empty</h2>
           <p>Add some albums to get started!</p>
         </div>
@@ -41,7 +40,7 @@ function Cart({ onCheckout }) {
   return (
     <div className="cart">
       <div className="cart-header">
-        <h1>🛒 Shopping Cart</h1>
+        <h1>Shopping Cart</h1>
         <p>{cartItems.length} {cartItems.length === 1 ? 'item' : 'items'} in your cart</p>
       </div>
 
@@ -81,7 +80,7 @@ function Cart({ onCheckout }) {
                 className="cart-item-remove"
                 onClick={() => removeFromCart(item.album_id)}
               >
-                🗑️
+                Remove
               </button>
             </div>
           ))}
