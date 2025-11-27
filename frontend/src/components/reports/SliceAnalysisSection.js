@@ -67,7 +67,6 @@ const SliceGrid = ({ dimension, data, formatCurrency }) => {
 
           return (
             <div key={idx} className="status-card">
-              <div className="status-indicator neutral"></div>
               <h3>{title}</h3>
               <div className="status-stats">
                 <div className="stat-item">

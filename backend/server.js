@@ -1497,6 +1497,7 @@ app.delete("/api/admin/artists/:id", async (req, res) => {
     );
 
     const albumCount = albumsCheck.rows.length;
+    let reassignedAlbums = 0;
 
     // Option 1: Force delete with cascade
     if (force === "true" && albumCount > 0) {
@@ -1541,14 +1542,13 @@ app.delete("/api/admin/artists/:id", async (req, res) => {
       });
     }
 
-    // Option 2: Safe delete (default)
+    // Option 2: Safe delete (default) - reassign albums to fallback artist
     if (albumCount > 0) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({
-        error: "Cannot delete artist with existing albums",
-        suggestion: "Use ?force=true to delete artist and all related albums",
-        albumCount: albumCount,
-      });
+      // Move all albums to the fallback artist (ID 0) so the delete can proceed
+      await client.query("UPDATE albums SET artist_id = 0 WHERE artist_id = $1", [
+        numericId,
+      ]);
+      reassignedAlbums = albumCount;
     }
 
     // Delete the artist
@@ -1563,7 +1563,10 @@ app.delete("/api/admin/artists/:id", async (req, res) => {
     }
 
     await client.query("COMMIT");
-    res.json({ message: "Artist deleted successfully" });
+    res.json({
+      message: "Artist deleted successfully",
+      reassignedAlbums,
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Delete artist error:", err);
