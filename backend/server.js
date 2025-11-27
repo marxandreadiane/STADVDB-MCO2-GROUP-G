@@ -154,6 +154,8 @@ const reportsDB = new Pool({
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
 
+const ANALYTICS_STATUSES = ['PAID', 'SHIPPED', 'DELIVERED'];
+
 // ✅ Root check
 app.get("/", (req, res) => {
   res.send("KPop Store API is running 🚀");
@@ -1660,7 +1662,7 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
         JOIN albums al ON ar.artist_id = al.artist_id
         JOIN order_items oi ON al.album_id = oi.album_id
         JOIN orders o ON oi.order_id = o.order_id
-        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+        WHERE o.status = ANY($1)
         GROUP BY c.company_id, c.name
         ORDER BY total_revenue DESC
       `;
@@ -1678,7 +1680,7 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
         JOIN albums al ON ar.artist_id = al.artist_id
         JOIN order_items oi ON al.album_id = oi.album_id
         JOIN orders o ON oi.order_id = o.order_id
-        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+        WHERE o.status = ANY($1)
         GROUP BY c.company_id, c.name, ar.artist_id, ar.name
         ORDER BY total_revenue DESC
       `;
@@ -1697,13 +1699,13 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
         JOIN albums al ON ar.artist_id = al.artist_id
         JOIN order_items oi ON al.album_id = oi.album_id
         JOIN orders o ON oi.order_id = o.order_id
-        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+        WHERE o.status = ANY($1)
         GROUP BY c.company_id, c.name, ar.artist_id, ar.name, al.album_id, al.title
         ORDER BY total_revenue DESC
       `;
     }
     
-    const result = await mainDB.query(query);
+    const result = await reportsDB.query(query, [ANALYTICS_STATUSES]);
     res.json(result.rows);
   } catch (err) {
     console.error('Roll up error:', err);
@@ -1731,7 +1733,7 @@ app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
         FROM artists ar
         JOIN albums al ON ar.artist_id = al.artist_id
         LEFT JOIN order_items oi ON al.album_id = oi.album_id
-        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.status = ANY($2)
         WHERE ar.company_id = $1
         GROUP BY ar.artist_id, ar.name, ar.fandom_name
         ORDER BY total_revenue DESC NULLS LAST
@@ -1750,14 +1752,14 @@ app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
           COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
         FROM albums al
         LEFT JOIN order_items oi ON al.album_id = oi.album_id
-        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.status = ANY($2)
         WHERE al.artist_id = $1
         GROUP BY al.album_id, al.title, al.release_date, al.price, al.stock_quantity
         ORDER BY total_revenue DESC
       `;
     }
     
-    const result = await mainDB.query(query, [id]);
+    const result = await reportsDB.query(query, [id, ANALYTICS_STATUSES]);
     res.json(result.rows);
   } catch (err) {
     console.error('Drill down error:', err);
@@ -1770,9 +1772,9 @@ app.get("/api/reports/dice", async (req, res) => {
   const { startDate, endDate, status, minPrice, maxPrice } = req.query;
   
   try {
-    let whereConditions = ['1=1'];
-    let params = [];
-    let paramIndex = 1;
+    let whereConditions = [`o.status = ANY($1)`];
+    let params = [ANALYTICS_STATUSES];
+    let paramIndex = 2;
     
     if (startDate) {
       whereConditions.push(`o.order_date >= $${paramIndex}`);
@@ -1828,7 +1830,7 @@ app.get("/api/reports/dice", async (req, res) => {
       LIMIT 100
     `;
     
-    const result = await mainDB.query(query, params);
+    const result = await reportsDB.query(query, params);
     res.json(result.rows);
   } catch (err) {
     console.error('Dice error:', err);
@@ -1838,31 +1840,83 @@ app.get("/api/reports/dice", async (req, res) => {
 
 // 🔪 SLICE: Single dimension filtering (e.g., sales for specific time period)
 app.get("/api/reports/slice/:dimension", async (req, res) => {
-  const { dimension } = req.params; // 'time', 'status', 'company', 'artist'
+  const { dimension } = req.params;
   const { value } = req.query;
   
   try {
+    if (dimension === 'time') {
+      const [daily, monthly, yearly] = await Promise.all([
+        reportsDB.query(
+          `
+            SELECT 
+              DATE_TRUNC('day', o.order_date)::date AS date,
+              COUNT(DISTINCT o.order_id) AS total_orders,
+              COALESCE(SUM(oi.quantity * oi.price), 0) AS total_revenue,
+              CASE WHEN COUNT(DISTINCT o.order_id) = 0 
+                THEN 0 
+                ELSE SUM(oi.quantity * oi.price) / COUNT(DISTINCT o.order_id) 
+              END AS avg_order_value
+            FROM orders o
+            JOIN order_items oi ON o.order_id = oi.order_id
+            WHERE o.status = ANY($1)
+              AND o.order_date >= NOW() - INTERVAL '30 days'
+            GROUP BY date
+            ORDER BY date DESC
+          `,
+          [ANALYTICS_STATUSES]
+        ),
+        reportsDB.query(
+          `
+            SELECT 
+              TO_CHAR(DATE_TRUNC('month', o.order_date), 'YYYY Mon') AS label,
+              CONCAT('Q', CEIL(EXTRACT(MONTH FROM o.order_date)/3)::INT, ' ', EXTRACT(YEAR FROM o.order_date)::INT) AS quarter,
+              COUNT(DISTINCT o.order_id) AS total_orders,
+              COALESCE(SUM(oi.quantity * oi.price), 0) AS total_revenue,
+              CASE WHEN COUNT(DISTINCT o.order_id) = 0 
+                THEN 0 
+                ELSE SUM(oi.quantity * oi.price) / COUNT(DISTINCT o.order_id) 
+              END AS avg_order_value
+            FROM orders o
+            JOIN order_items oi ON o.order_id = oi.order_id
+            WHERE o.status = ANY($1)
+              AND o.order_date >= DATE_TRUNC('month', NOW()) - INTERVAL '11 months'
+            GROUP BY DATE_TRUNC('month', o.order_date), label, quarter
+            ORDER BY DATE_TRUNC('month', o.order_date) DESC
+          `,
+          [ANALYTICS_STATUSES]
+        ),
+        reportsDB.query(
+          `
+            SELECT 
+              TO_CHAR(DATE_TRUNC('year', o.order_date), 'YYYY') AS label,
+              COUNT(DISTINCT o.order_id) AS total_orders,
+              COALESCE(SUM(oi.quantity * oi.price), 0) AS total_revenue,
+              CASE WHEN COUNT(DISTINCT o.order_id) = 0 
+                THEN 0 
+                ELSE SUM(oi.quantity * oi.price) / COUNT(DISTINCT o.order_id) 
+              END AS avg_order_value
+            FROM orders o
+            JOIN order_items oi ON o.order_id = oi.order_id
+            WHERE o.status = ANY($1)
+              AND o.order_date >= DATE_TRUNC('year', NOW()) - INTERVAL '4 years'
+            GROUP BY DATE_TRUNC('year', o.order_date), label
+            ORDER BY DATE_TRUNC('year', o.order_date) DESC
+          `,
+          [ANALYTICS_STATUSES]
+        )
+      ]);
+      
+      return res.json({
+        daily: daily.rows,
+        monthly: monthly.rows,
+        yearly: yearly.rows
+      });
+    }
+    
     let query = '';
     let params = [];
     
-    if (dimension === 'time') {
-      // Slice by time period (e.g., specific month/year)
-      query = `
-        SELECT 
-          DATE_TRUNC('month', o.order_date) as month,
-          COUNT(DISTINCT o.order_id) as total_orders,
-          SUM(oi.quantity) as total_units_sold,
-          SUM(oi.quantity * oi.price) as total_revenue
-        FROM orders o
-        JOIN order_items oi ON o.order_id = oi.order_id
-        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
-          ${value ? `AND DATE_TRUNC('month', o.order_date) = $1` : ''}
-        GROUP BY DATE_TRUNC('month', o.order_date)
-        ORDER BY month DESC
-      `;
-      if (value) params.push(value);
-    } else if (dimension === 'status') {
-      // Slice by order status
+    if (dimension === 'status') {
       query = `
         SELECT 
           o.status,
@@ -1876,7 +1930,6 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
       `;
       if (value) params.push(value);
     } else if (dimension === 'company') {
-      // Slice by company
       query = `
         SELECT 
           c.name as company_name,
@@ -1889,14 +1942,13 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
         JOIN albums al ON ar.artist_id = al.artist_id
         JOIN order_items oi ON al.album_id = oi.album_id
         JOIN orders o ON oi.order_id = o.order_id
-        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
-          ${value ? `AND c.company_id = $1` : ''}
+        WHERE o.status = ANY($1)
+          ${value ? `AND c.company_id = $2` : ''}
         GROUP BY c.name, ar.name, al.title
         ORDER BY revenue DESC
       `;
-      if (value) params.push(value);
+      params = value ? [ANALYTICS_STATUSES, value] : [ANALYTICS_STATUSES];
     } else if (dimension === 'artist') {
-      // Slice by artist
       query = `
         SELECT 
           ar.name as artist_name,
@@ -1908,15 +1960,17 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
         JOIN albums al ON ar.artist_id = al.artist_id
         JOIN order_items oi ON al.album_id = oi.album_id
         JOIN orders o ON oi.order_id = o.order_id
-        WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
-          ${value ? `AND ar.artist_id = $1` : ''}
+        WHERE o.status = ANY($1)
+          ${value ? `AND ar.artist_id = $2` : ''}
         GROUP BY ar.name, al.title, al.release_date
         ORDER BY revenue DESC
       `;
-      if (value) params.push(value);
+      params = value ? [ANALYTICS_STATUSES, value] : [ANALYTICS_STATUSES];
+    } else {
+      return res.status(400).json({ error: "Invalid slice dimension" });
     }
     
-    const result = await mainDB.query(query, params);
+    const result = await reportsDB.query(query, params);
     res.json(result.rows);
   } catch (err) {
     console.error('Slice error:', err);
@@ -1926,22 +1980,71 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
 
 // 📈 Additional: Sales trends over time
 app.get("/api/reports/sales-trends", async (req, res) => {
+  const granularity = (req.query.granularity || 'daily').toLowerCase();
+  
   try {
-    const query = `
-      SELECT 
-        DATE_TRUNC('day', o.order_date) as date,
-        COUNT(DISTINCT o.order_id) as orders,
-        SUM(oi.quantity) as units,
-        SUM(oi.quantity * oi.price) as revenue
-      FROM orders o
-      JOIN order_items oi ON o.order_id = oi.order_id
-      WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
-        AND o.order_date >= NOW() - INTERVAL '30 days'
-      GROUP BY DATE_TRUNC('day', o.order_date)
-      ORDER BY date DESC
-    `;
+    let query = '';
+    let params = [ANALYTICS_STATUSES];
     
-    const result = await mainDB.query(query);
+    if (granularity === 'daily') {
+      query = `
+        SELECT 
+          DATE_TRUNC('day', o.order_date)::date as date,
+          COUNT(DISTINCT o.order_id) as orders,
+          SUM(oi.quantity * oi.price) as revenue
+        FROM orders o
+        JOIN order_items oi ON o.order_id = oi.order_id
+        WHERE o.status = ANY($1)
+          AND o.order_date >= NOW() - INTERVAL '30 days'
+        GROUP BY DATE_TRUNC('day', o.order_date)
+        ORDER BY DATE_TRUNC('day', o.order_date)
+      `;
+    } else if (granularity === 'monthly') {
+      query = `
+        SELECT 
+          TO_CHAR(DATE_TRUNC('month', o.order_date), 'YYYY Mon') as period,
+          CONCAT('Q', CEIL(EXTRACT(MONTH FROM o.order_date)/3)::INT, ' ', EXTRACT(YEAR FROM o.order_date)::INT) AS quarter,
+          COUNT(DISTINCT o.order_id) as orders,
+          SUM(oi.quantity * oi.price) as revenue,
+          'month' as type
+        FROM orders o
+        JOIN order_items oi ON o.order_id = oi.order_id
+        WHERE o.status = ANY($1)
+          AND o.order_date >= DATE_TRUNC('month', NOW()) - INTERVAL '11 months'
+        GROUP BY DATE_TRUNC('month', o.order_date), period, quarter
+        ORDER BY DATE_TRUNC('month', o.order_date)
+      `;
+    } else if (granularity === 'quarterly') {
+      query = `
+        SELECT 
+          TO_CHAR(DATE_TRUNC('quarter', o.order_date), '"Q"Q YYYY') as period,
+          COUNT(DISTINCT o.order_id) as orders,
+          SUM(oi.quantity * oi.price) as revenue,
+          'quarter' as type
+        FROM orders o
+        JOIN order_items oi ON o.order_id = oi.order_id
+        WHERE o.status = ANY($1)
+          AND o.order_date >= DATE_TRUNC('quarter', NOW()) - INTERVAL '21 months'
+        GROUP BY DATE_TRUNC('quarter', o.order_date), period
+        ORDER BY DATE_TRUNC('quarter', o.order_date)
+      `;
+    } else {
+      query = `
+        SELECT 
+          TO_CHAR(DATE_TRUNC('year', o.order_date), 'YYYY') as period,
+          COUNT(DISTINCT o.order_id) as orders,
+          SUM(oi.quantity * oi.price) as revenue,
+          'year' as type
+        FROM orders o
+        JOIN order_items oi ON o.order_id = oi.order_id
+        WHERE o.status = ANY($1)
+          AND o.order_date >= DATE_TRUNC('year', NOW()) - INTERVAL '4 years'
+        GROUP BY DATE_TRUNC('year', o.order_date), period
+        ORDER BY DATE_TRUNC('year', o.order_date)
+      `;
+    }
+    
+    const result = await reportsDB.query(query, params);
     res.json(result.rows);
   } catch (err) {
     console.error('Sales trends error:', err);
