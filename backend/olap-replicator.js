@@ -31,18 +31,23 @@ async function refreshOLAPReports() {
         `[${new Date().toISOString()}] OLAP reports refreshed successfully`
       );
 
-      // Log data freshness
-      const freshnessResult = await client.query(
-        "SELECT * FROM olap_data_freshness"
-      );
-      console.log("Data freshness:");
-      freshnessResult.rows.forEach((row) => {
-        console.log(
-          `  ${row.table_name}: ${row.row_count} rows, last updated ${
-            row.age || "just now"
-          }`
+      // Log data freshness (only if view exists)
+      try {
+        const freshnessResult = await client.query(
+          "SELECT * FROM olap_data_freshness"
         );
-      });
+        console.log("Data freshness:");
+        freshnessResult.rows.forEach((row) => {
+          console.log(
+            `  ${row.table_name}: ${row.row_count} rows, last updated ${
+              row.age || "just now"
+            }`
+          );
+        });
+      } catch (err) {
+        // olap_data_freshness view might not exist yet
+        console.log("  (Data freshness view not available)");
+      }
     } finally {
       client.release();
     }
