@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from '../components/AuthModal';
+import { getAlbumImageUrl, handleImageError } from '../utils/imageUtils';
 import './Cart.css';
 
 function Cart({ onCheckout }) {
@@ -50,9 +51,9 @@ function Cart({ onCheckout }) {
             <div key={item.album_id} className="cart-item">
               <div className="cart-item-image">
                 <img 
-                  src={item.image_url || `/images/albums/${item.album_id}.jpg`}
+                  src={getAlbumImageUrl(item.image_url, item.album_id)}
                   alt={item.album_name}
-                  onError={(e) => e.target.src = '/images/album-placeholder.jpg'}
+                  onError={(e) => handleImageError(e, item.album_id)}
                 />
               </div>
               <div className="cart-item-details">

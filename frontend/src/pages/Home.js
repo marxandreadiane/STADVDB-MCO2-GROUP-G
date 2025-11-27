@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { handleImageError } from '../utils/imageUtils';
 import './Home.css';
 
 function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
   
-  // Carousel images - reusing album images
+  // Carousel images - reusing album images (try .webp first, fallback to .jpg)
   const slides = [
-    { id: 1, image: '/images/albums/1.jpg', alt: 'Album 1' },
-    { id: 2, image: '/images/albums/2.jpg', alt: 'Album 2' },
-    { id: 3, image: '/images/albums/3.jpg', alt: 'Album 3' },
-    { id: 4, image: '/images/albums/4.jpg', alt: 'Album 4' },
-    { id: 5, image: '/images/albums/5.jpg', alt: 'Album 5' },
+    { id: 1, image: '/images/albums/1.webp', alt: 'Album 1' },
+    { id: 2, image: '/images/albums/2.webp', alt: 'Album 2' },
+    { id: 3, image: '/images/albums/3.webp', alt: 'Album 3' },
+    { id: 4, image: '/images/albums/4.webp', alt: 'Album 4' },
+    { id: 5, image: '/images/albums/5.webp', alt: 'Album 5' },
   ];
 
   // Auto-advance carousel every 4 seconds
@@ -52,9 +53,7 @@ function Home() {
                   <img 
                     src={slide.image} 
                     alt={slide.alt}
-                    onError={(e) => {
-                      e.target.src = '/images/album-placeholder.jpg';
-                    }}
+                    onError={(e) => handleImageError(e, slide.id)}
                   />
                 </div>
               ))}

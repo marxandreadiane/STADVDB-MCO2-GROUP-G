@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from '../components/AuthModal';
+import { getAlbumImageUrl, handleImageError } from '../utils/imageUtils';
 import './Albums.css';
 
 function Albums() {
@@ -311,11 +312,9 @@ function Albums() {
             <div key={album.album_id} className="album-card">
               <div className="album-image">
                 <img 
-                  src={album.image_url || `/images/albums/${album.album_id}.jpg`}
+                  src={getAlbumImageUrl(album.image_url, album.album_id)}
                   alt={album.album_name}
-                  onError={(e) => {
-                    e.target.src = '/images/album-placeholder.jpg';
-                  }}
+                  onError={(e) => handleImageError(e, album.album_id)}
                 />
               </div>
               <div className="album-info">
