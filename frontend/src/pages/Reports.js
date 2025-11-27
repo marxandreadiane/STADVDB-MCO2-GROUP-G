@@ -29,22 +29,22 @@ function Reports() {
   const [salesByCompany, setSalesByCompany] = useState([]);
   const [salesByArtist, setSalesByArtist] = useState([]);
   const [salesByAlbum, setSalesByAlbum] = useState([]);
-  const [salesByStatus, setSalesByStatus] = useState([]);
+  const [sliceData, setSliceData] = useState([]);
   const [timeSliceData, setTimeSliceData] = useState({ daily: [], monthly: [], yearly: [] });
   const [dailyTrends, setDailyTrends] = useState([]);
   const [monthlyTrends, setMonthlyTrends] = useState([]);
   const [quarterlyTrends, setQuarterlyTrends] = useState([]);
   const [annualTrends, setAnnualTrends] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const [sliceDimension, setSliceDimension] = useState('status');
+  const [sliceDimension, setSliceDimension] = useState('company');
   const [sliceLoading, setSliceLoading] = useState(false);
   const [timeSliceView, setTimeSliceView] = useState('daily');
   
   const [diceFilters, setDiceFilters] = useState({
     startDate: '',
     endDate: '',
-    status: '',
     minPrice: '',
     maxPrice: ''
   });
@@ -54,59 +54,60 @@ function Reports() {
     max: new Date().toISOString().split('T')[0]
   }), []);
 
-  useEffect(() => {
-    const loadReports = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [
-          companyData,
-          artistData,
-          albumData,
-          statusSliceData,
-          timeSlice,
-          dailyTrendData,
-          monthlyTrendData,
-          quarterlyTrendData,
-          annualTrendData
-        ] = await Promise.all([
-          fetchJSON('/api/reports/rollup-sales?level=company'),
-          fetchJSON('/api/reports/rollup-sales?level=artist'),
-          fetchJSON('/api/reports/rollup-sales?level=album'),
-          fetchJSON('/api/reports/slice/status'),
-          fetchJSON('/api/reports/slice/time'),
-          fetchJSON('/api/reports/sales-trends?granularity=daily'),
-          fetchJSON('/api/reports/sales-trends?granularity=monthly'),
-          fetchJSON('/api/reports/sales-trends?granularity=quarterly'),
-          fetchJSON('/api/reports/sales-trends?granularity=annual')
-        ]);
+  const loadReports = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [
+        companyData,
+        artistData,
+        albumData,
+        timeSlice,
+        dailyTrendData,
+        monthlyTrendData,
+        quarterlyTrendData,
+        annualTrendData
+      ] = await Promise.all([
+        fetchJSON('/api/reports/rollup-sales?level=company'),
+        fetchJSON('/api/reports/rollup-sales?level=artist'),
+        fetchJSON('/api/reports/rollup-sales?level=album'),
+        fetchJSON('/api/reports/slice/time'),
+        fetchJSON('/api/reports/sales-trends?granularity=daily'),
+        fetchJSON('/api/reports/sales-trends?granularity=monthly'),
+        fetchJSON('/api/reports/sales-trends?granularity=quarterly'),
+        fetchJSON('/api/reports/sales-trends?granularity=annual')
+      ]);
 
-        setSalesByCompany(companyData);
-        setSalesByArtist(artistData);
-        setSalesByAlbum(albumData);
-        setSalesByStatus(statusSliceData);
-        setTimeSliceData(timeSlice);
-        setDailyTrends(dailyTrendData.sort((a, b) => new Date(b.date) - new Date(a.date)));
-        setMonthlyTrends(monthlyTrendData);
-        setQuarterlyTrends(quarterlyTrendData);
-        setAnnualTrends(annualTrendData);
-      } catch (err) {
-        console.error('Analytics load error:', err);
-        setError('Failed to load analytics data. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadReports();
+      setSalesByCompany(Array.isArray(companyData) ? companyData : []);
+      setSalesByArtist(Array.isArray(artistData) ? artistData : []);
+      setSalesByAlbum(Array.isArray(albumData) ? albumData : []);
+      setTimeSliceData(timeSlice || { daily: [], monthly: [], yearly: [] });
+      setDailyTrends(
+        Array.isArray(dailyTrendData)
+          ? [...dailyTrendData].sort((a, b) => new Date(b.date) - new Date(a.date))
+          : []
+      );
+      setMonthlyTrends(Array.isArray(monthlyTrendData) ? monthlyTrendData : []);
+      setQuarterlyTrends(Array.isArray(quarterlyTrendData) ? quarterlyTrendData : []);
+      setAnnualTrends(Array.isArray(annualTrendData) ? annualTrendData : []);
+    } catch (err) {
+      console.error('Analytics load error:', err);
+      setError('Failed to load analytics data. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadReports();
+  }, [loadReports]);
 
   const fetchSliceDimension = useCallback(async (dimension) => {
     if (dimension === 'time') return;
     setSliceLoading(true);
     try {
       const data = await fetchJSON(`/api/reports/slice/${dimension}`);
-      setSalesByStatus(data);
+      setSliceData(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Slice fetch error:', err);
     } finally {
@@ -115,16 +116,18 @@ function Reports() {
   }, []);
 
   useEffect(() => {
-    if (!loading && sliceDimension !== 'time') {
-      fetchSliceDimension(sliceDimension);
+    if (loading) return;
+    if (sliceDimension === 'time') {
+      setSliceData([]);
+      return;
     }
+    fetchSliceDimension(sliceDimension);
   }, [sliceDimension, loading, fetchSliceDimension]);
 
   const buildDiceUrl = useCallback(() => {
     const params = new URLSearchParams();
     if (diceFilters.startDate) params.append('startDate', diceFilters.startDate);
     if (diceFilters.endDate) params.append('endDate', diceFilters.endDate);
-    if (diceFilters.status) params.append('status', diceFilters.status);
     if (diceFilters.minPrice) params.append('minPrice', diceFilters.minPrice);
     if (diceFilters.maxPrice) params.append('maxPrice', diceFilters.maxPrice);
     const query = params.toString();
@@ -138,7 +141,7 @@ function Reports() {
       const response = await fetch(buildDiceUrl());
       if (!response.ok) throw new Error('Dice request failed');
       const data = await response.json();
-      setRecentOrders(data.slice(0, 15));
+      setRecentOrders(Array.isArray(data) ? data.slice(0, 15) : []);
     } catch (err) {
       console.error('Dice fetch error:', err);
     } finally {
@@ -189,6 +192,27 @@ function Reports() {
     });
   };
 
+  const handleRefreshReports = async () => {
+    if (!isAdmin || refreshing) return;
+    setRefreshing(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/reports/refresh`, { method: 'POST' });
+      if (!response.ok) {
+        throw new Error('Refresh request failed');
+      }
+      await loadReports();
+      if (sliceDimension !== 'time') {
+        await fetchSliceDimension(sliceDimension);
+      }
+      await fetchDiceData();
+    } catch (err) {
+      console.error('Refresh error:', err);
+      setError('Failed to refresh reports database. Please try again.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const formatCurrency = (amount) => {
     const num = parseFloat(amount || 0);
     return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -234,8 +258,19 @@ function Reports() {
   return (
     <div className="reports-page">
       <div className="reports-header">
-        <h1>{isAdmin ? 'Sales Analytics Dashboard' : 'Popular Albums & Trends'}</h1>
-        <p>{isAdmin ? 'Comprehensive OLAP Analysis & Business Intelligence' : 'Discover trending albums and popular artists'}</p>
+        <div className="reports-header-text">
+          <h1>{isAdmin ? 'Sales Analytics Dashboard' : 'Popular Albums & Trends'}</h1>
+          <p>{isAdmin ? 'Comprehensive OLAP Analysis & Business Intelligence' : 'Discover trending albums and popular artists'}</p>
+        </div>
+        {isAdmin && (
+          <button
+            className="btn-refresh"
+            onClick={handleRefreshReports}
+            disabled={refreshing || loading}
+          >
+            {refreshing ? 'Refreshing…' : 'Refresh Reports Data'}
+          </button>
+        )}
       </div>
 
       <ReportsSummaryCards
@@ -267,7 +302,7 @@ function Reports() {
         <SliceAnalysisSection
           sliceDimension={sliceDimension}
           onDimensionChange={handleSliceChange}
-          sliceData={sliceDimension === 'time' ? [] : salesByStatus}
+          sliceData={sliceDimension === 'time' ? [] : sliceData}
           sliceLoading={sliceLoading}
           formatCurrency={formatCurrency}
           timeData={timeSliceData}

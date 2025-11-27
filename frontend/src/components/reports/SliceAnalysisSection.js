@@ -2,13 +2,19 @@ import React from 'react';
 
 const TimeTabs = ({ active, onChange }) => (
   <div className="trend-tabs">
-    {['daily', 'quarterly', 'yearly'].map(tab => (
+    {['daily', 'monthly', 'quarterly', 'yearly'].map(tab => (
       <button
         key={tab}
         className={`trend-tab ${active === tab ? 'active' : ''}`}
         onClick={() => onChange(tab)}
       >
-        {tab === 'daily' ? 'Daily' : tab === 'quarterly' ? 'Quarterly' : 'Yearly'}
+        {tab === 'daily'
+          ? 'Daily'
+          : tab === 'monthly'
+          ? 'Monthly'
+          : tab === 'quarterly'
+          ? 'Quarterly'
+          : 'Yearly'}
       </button>
     ))}
   </div>
@@ -56,28 +62,25 @@ const SliceGrid = ({ dimension, data, formatCurrency }) => {
   return (
     <>
       <div className="status-grid" style={{ opacity: data.length === 0 ? 0.5 : 1, transition: 'opacity 0.3s' }}>
-        {visibleData.map((status, idx) => {
-          let title = '';
-          if (dimension === 'status') title = status.status;
-          else if (dimension === 'company') title = status.company_name;
-          else title = status.artist_name;
+        {visibleData.map((item, idx) => {
+          const title = dimension === 'company' ? item.company_name : item.artist_name;
 
           return (
             <div key={idx} className="status-card">
-              <div className={`status-indicator ${dimension === 'status' ? status.status?.toLowerCase() : ''}`}></div>
+              <div className="status-indicator neutral"></div>
               <h3>{title}</h3>
               <div className="status-stats">
                 <div className="stat-item">
                   <span className="stat-label">Orders</span>
-                  <span className="stat-value">{status.total_orders}</span>
+                  <span className="stat-value">{item.total_orders}</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">Revenue</span>
-                  <span className="stat-value">{formatCurrency(status.total_revenue)}</span>
+                  <span className="stat-value">{formatCurrency(item.total_revenue)}</span>
                 </div>
                 <div className="stat-item">
                   <span className="stat-label">Avg Value</span>
-                  <span className="stat-value">{formatCurrency(status.avg_order_value)}</span>
+                  <span className="stat-value">{formatCurrency(item.avg_order_value)}</span>
                 </div>
               </div>
             </div>
@@ -126,7 +129,6 @@ const SliceAnalysisSection = ({
       <div className="filter-group">
         <label>Slice by:</label>
         <select value={sliceDimension} onChange={(e) => onDimensionChange(e.target.value)}>
-          <option value="status">Order Status</option>
           <option value="time">Time Period</option>
           <option value="company">Company</option>
           <option value="artist">Artist</option>

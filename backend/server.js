@@ -229,6 +229,7 @@ const mainDB = new Pool({
 // Set search_path to public schema for Supabase
 mainDB.on("connect", (client) => {
   client.query("SET search_path TO public");
+  client.query("SET statement_timeout TO 0");
 });
 
 const reportsDB = new Pool({
@@ -243,9 +244,147 @@ const reportsDB = new Pool({
 // Set search_path to public schema for Supabase
 reportsDB.on("connect", (client) => {
   client.query("SET search_path TO public");
+  client.query("SET statement_timeout TO 0");
 });
 
 const ANALYTICS_STATUSES = ["PAID", "SHIPPED", "DELIVERED"];
+
+const TABLE_SYNC_CONFIG = [
+  {
+    name: "users",
+    primaryKey: "user_id",
+    columns: [
+      "user_id",
+      "username",
+      "email",
+      "password",
+      "phone",
+      "address",
+      "role",
+      "created_at",
+    ],
+    sequence: "users_user_id_seq",
+  },
+  {
+    name: "companies",
+    primaryKey: "company_id",
+    columns: ["company_id", "name", "headquarters", "founded_year", "ceo_name"],
+    sequence: "companies_company_id_seq",
+  },
+  {
+    name: "artists",
+    primaryKey: "artist_id",
+    columns: ["artist_id", "company_id", "name", "debut_year", "fandom_name"],
+    sequence: "artists_artist_id_seq",
+  },
+  {
+    name: "albums",
+    primaryKey: "album_id",
+    columns: [
+      "album_id",
+      "artist_id",
+      "title",
+      "release_date",
+      "price",
+      "stock_quantity",
+      "image_url",
+    ],
+    sequence: "albums_album_id_seq",
+  },
+  {
+    name: "orders",
+    primaryKey: "order_id",
+    columns: [
+      "order_id",
+      "user_id",
+      "order_date",
+      "status",
+      "total_amount",
+      "shipping_address",
+      "phone",
+    ],
+    sequence: "orders_order_id_seq",
+  },
+  {
+    name: "order_items",
+    primaryKey: "order_item_id",
+    columns: ["order_item_id", "order_id", "album_id", "quantity", "price"],
+    sequence: "order_items_order_item_id_seq",
+  },
+];
+
+const REPORTS_SYNC_BATCH =
+  parseInt(process.env.REPORTS_SYNC_BATCH || "1000", 10) || 1000;
+
+const syncReportsDatabase = async () => {
+  const reportsClient = await reportsDB.connect();
+  try {
+    await reportsClient.query("SET statement_timeout TO 0");
+    await reportsClient.query("BEGIN");
+
+    for (const table of TABLE_SYNC_CONFIG) {
+
+      const insertBase = `INSERT INTO ${table.name} (${table.columns.join(
+        ", "
+      )}) VALUES `;
+      const columnCount = table.columns.length;
+      const { rows: maxRows } = await reportsClient.query(
+        `SELECT COALESCE(MAX(${table.primaryKey}), 0) AS max FROM ${table.name}`
+      );
+      let lastPrimaryKey = parseInt(maxRows[0]?.max || 0, 10);
+
+      // Fetch and insert in batches to avoid long-running statements
+      while (true) {
+        const selectQuery = `
+          SELECT ${table.columns.join(", ")}
+          FROM ${table.name}
+          WHERE ${table.primaryKey} > $1
+          ORDER BY ${table.primaryKey} ASC
+          LIMIT $2
+        `;
+        const { rows } = await mainDB.query(selectQuery, [
+          lastPrimaryKey,
+          REPORTS_SYNC_BATCH,
+        ]);
+
+        if (rows.length === 0) {
+          break;
+        }
+
+        const values = [];
+        const placeholders = rows
+          .map((row, rowIdx) => {
+            const rowPlaceholders = table.columns.map(
+              (_, colIdx) => `$${rowIdx * columnCount + colIdx + 1}`
+            );
+            values.push(...table.columns.map((col) => row[col]));
+            return `(${rowPlaceholders.join(", ")})`;
+          })
+          .join(", ");
+
+        await reportsClient.query(insertBase + placeholders, values);
+
+        lastPrimaryKey = rows[rows.length - 1][table.primaryKey];
+
+      }
+
+      if (table.sequence) {
+        await reportsClient.query(
+          `SELECT setval('${table.sequence}', (SELECT COALESCE(MAX(${table.primaryKey}), 1) FROM ${table.name}), true)`
+        );
+      }
+    }
+
+    await reportsClient.query("COMMIT");
+    console.log("Reports database refreshed from main database");
+  } catch (err) {
+    await reportsClient.query("ROLLBACK");
+    console.error("Reports sync error:", err);
+    throw err;
+  } finally {
+    reportsClient.release();
+  }
+};
 
 // ✅ Root check
 app.get("/", (req, res) => {
@@ -2224,6 +2363,18 @@ app.get("/api/reports/dice", async (req, res) => {
   } catch (err) {
     console.error("Dice error:", err);
     res.status(500).json({ error: "Failed to fetch dice report" });
+  }
+});
+
+app.post("/api/reports/refresh", async (_req, res) => {
+  try {
+    await syncReportsDatabase();
+    res.json({ message: "Reports database refreshed" });
+  } catch (err) {
+    console.error("Refresh reports error:", err);
+    res
+      .status(500)
+      .json({ error: err.message || "Failed to refresh reports database" });
   }
 });
 

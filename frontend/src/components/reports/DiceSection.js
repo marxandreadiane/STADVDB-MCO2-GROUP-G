@@ -37,17 +37,6 @@ const DiceSection = ({
         />
       </div>
       <div className="filter-group">
-        <label>Status</label>
-        <select value={diceFilters.status} onChange={(e) => onFilterChange('status', e.target.value)}>
-          <option value="">All Statuses</option>
-          <option value="PENDING">Pending</option>
-          <option value="PAID">Paid</option>
-          <option value="SHIPPED">Shipped</option>
-          <option value="DELIVERED">Delivered</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
-      </div>
-      <div className="filter-group">
         <label>Min Price</label>
         <input
           type="number"
