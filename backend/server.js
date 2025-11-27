@@ -8,12 +8,13 @@ const { Pool } = pkg;
 
 dotenv.config();
 const ACTIONS = {
-  create: 'Adding',
-  update: 'Editing',
-  delete: 'Deleting'
+  create: "Adding",
+  update: "Editing",
+  delete: "Deleting",
 };
 
-const formatValidationError = (entity, action, reason) => `${action} ${entity} failed: ${reason}`;
+const formatValidationError = (entity, action, reason) =>
+  `${action} ${entity} failed: ${reason}`;
 
 const parseInteger = (value) => {
   const parsed = parseInt(value, 10);
@@ -21,47 +22,99 @@ const parseInteger = (value) => {
 };
 
 const validateAlbumPayload = (data, actionLabel) => {
-  if (data.image_url && !data.image_url.startsWith('/images/albums/')) {
-    return { error: formatValidationError('album', actionLabel, "Image path must be inside /images/albums/") };
+  if (data.image_url && !data.image_url.startsWith("/images/albums/")) {
+    return {
+      error: formatValidationError(
+        "album",
+        actionLabel,
+        "Image path must be inside /images/albums/"
+      ),
+    };
   }
 
   const trimmedTitle = data.title?.trim();
   if (!trimmedTitle) {
-    return { error: formatValidationError('album', actionLabel, "Title is required") };
+    return {
+      error: formatValidationError("album", actionLabel, "Title is required"),
+    };
   }
 
   const artistId = parseInteger(data.artist_id);
   if (!artistId) {
-    return { error: formatValidationError('album', actionLabel, "A valid artist must be selected") };
+    return {
+      error: formatValidationError(
+        "album",
+        actionLabel,
+        "A valid artist must be selected"
+      ),
+    };
   }
 
-  const numericPrice = data.price !== undefined && data.price !== null ? parseFloat(data.price) : null;
-  if (numericPrice === null || Number.isNaN(numericPrice) || numericPrice <= 0) {
-    return { error: formatValidationError('album', actionLabel, "Price must be a positive number") };
+  const numericPrice =
+    data.price !== undefined && data.price !== null
+      ? parseFloat(data.price)
+      : null;
+  if (
+    numericPrice === null ||
+    Number.isNaN(numericPrice) ||
+    numericPrice <= 0
+  ) {
+    return {
+      error: formatValidationError(
+        "album",
+        actionLabel,
+        "Price must be a positive number"
+      ),
+    };
   }
 
-  const numericStock = data.stock_quantity !== undefined && data.stock_quantity !== null
-    ? parseInteger(data.stock_quantity)
-    : 0;
+  const numericStock =
+    data.stock_quantity !== undefined && data.stock_quantity !== null
+      ? parseInteger(data.stock_quantity)
+      : 0;
 
   if (numericStock === null || numericStock < 0) {
-    return { error: formatValidationError('album', actionLabel, "Stock quantity must be a non-negative integer") };
+    return {
+      error: formatValidationError(
+        "album",
+        actionLabel,
+        "Stock quantity must be a non-negative integer"
+      ),
+    };
   }
 
   let releaseDate = null;
   if (data.release_date) {
     const parsedDate = new Date(data.release_date);
     if (Number.isNaN(parsedDate.getTime())) {
-      return { error: formatValidationError('album', actionLabel, "Release date is invalid") };
+      return {
+        error: formatValidationError(
+          "album",
+          actionLabel,
+          "Release date is invalid"
+        ),
+      };
     }
     const today = new Date();
     today.setHours(23, 59, 59, 999);
-    const minDate = new Date('1980-01-01');
+    const minDate = new Date("1980-01-01");
     if (parsedDate > today) {
-      return { error: formatValidationError('album', actionLabel, "Release date cannot be in the future") };
+      return {
+        error: formatValidationError(
+          "album",
+          actionLabel,
+          "Release date cannot be in the future"
+        ),
+      };
     }
     if (parsedDate < minDate) {
-      return { error: formatValidationError('album', actionLabel, "Release date must be on or after January 1, 1980") };
+      return {
+        error: formatValidationError(
+          "album",
+          actionLabel,
+          "Release date must be on or after January 1, 1980"
+        ),
+      };
     }
     releaseDate = data.release_date;
   }
@@ -72,22 +125,34 @@ const validateAlbumPayload = (data, actionLabel) => {
     price: numericPrice,
     releaseDate,
     stockQuantity: numericStock,
-    imageUrl: data.image_url || null
+    imageUrl: data.image_url || null,
   };
 };
 
 const validateCompanyPayload = (data, actionLabel) => {
   const trimmedName = data.name?.trim();
   if (!trimmedName) {
-    return { error: formatValidationError('company', actionLabel, "Name is required") };
+    return {
+      error: formatValidationError("company", actionLabel, "Name is required"),
+    };
   }
 
   let foundedYear = null;
-  if (data.founded_year !== undefined && data.founded_year !== null && data.founded_year !== '') {
+  if (
+    data.founded_year !== undefined &&
+    data.founded_year !== null &&
+    data.founded_year !== ""
+  ) {
     const parsedYear = parseInteger(data.founded_year);
     const currentYear = new Date().getFullYear();
     if (parsedYear === null || parsedYear < 1980 || parsedYear > currentYear) {
-      return { error: formatValidationError('company', actionLabel, `Founded year must be between 1980 and ${currentYear}`) };
+      return {
+        error: formatValidationError(
+          "company",
+          actionLabel,
+          `Founded year must be between 1980 and ${currentYear}`
+        ),
+      };
     }
     foundedYear = parsedYear;
   }
@@ -96,37 +161,53 @@ const validateCompanyPayload = (data, actionLabel) => {
     name: trimmedName,
     headquarters: data.headquarters?.trim() || null,
     foundedYear,
-    ceoName: data.ceo_name?.trim() || null
+    ceoName: data.ceo_name?.trim() || null,
   };
 };
 
 const validateUserPayload = (data, actionLabel) => {
   const trimmedUsername = data.username?.trim();
   if (!trimmedUsername) {
-    return { error: formatValidationError('user', actionLabel, "Username is required") };
+    return {
+      error: formatValidationError("user", actionLabel, "Username is required"),
+    };
   }
 
   const trimmedEmail = data.email?.trim();
   if (!trimmedEmail) {
-    return { error: formatValidationError('user', actionLabel, "Email is required") };
+    return {
+      error: formatValidationError("user", actionLabel, "Email is required"),
+    };
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(trimmedEmail)) {
-    return { error: formatValidationError('user', actionLabel, "Email address is invalid") };
+    return {
+      error: formatValidationError(
+        "user",
+        actionLabel,
+        "Email address is invalid"
+      ),
+    };
   }
 
   const sanitized = {
     username: trimmedUsername,
     email: trimmedEmail.toLowerCase(),
     password: data.password ?? null,
-    phone: data.phone?.trim() || '',
-    address: data.address?.trim() || '',
-    role: data.role?.trim() || 'customer'
+    phone: data.phone?.trim() || "",
+    address: data.address?.trim() || "",
+    role: data.role?.trim() || "customer",
   };
 
-  if (!['customer', 'admin', 'staff'].includes(sanitized.role)) {
-    return { error: formatValidationError('user', actionLabel, "Role must be customer, admin, or staff") };
+  if (!["customer", "admin", "staff"].includes(sanitized.role)) {
+    return {
+      error: formatValidationError(
+        "user",
+        actionLabel,
+        "Role must be customer, admin, or staff"
+      ),
+    };
   }
 
   return sanitized;
@@ -142,7 +223,12 @@ const mainDB = new Pool({
   user: process.env.DB_MAIN_USER,
   password: process.env.DB_MAIN_PASS,
   database: process.env.DB_MAIN_NAME,
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
+});
+
+// Set search_path to public schema for Supabase
+mainDB.on("connect", (client) => {
+  client.query("SET search_path TO public");
 });
 
 const reportsDB = new Pool({
@@ -151,10 +237,15 @@ const reportsDB = new Pool({
   user: process.env.DB_REPORTS_USER,
   password: process.env.DB_REPORTS_PASS,
   database: process.env.DB_REPORTS_NAME,
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
 });
 
-const ANALYTICS_STATUSES = ['PAID', 'SHIPPED', 'DELIVERED'];
+// Set search_path to public schema for Supabase
+reportsDB.on("connect", (client) => {
+  client.query("SET search_path TO public");
+});
+
+const ANALYTICS_STATUSES = ["PAID", "SHIPPED", "DELIVERED"];
 
 // ✅ Root check
 app.get("/", (req, res) => {
@@ -170,7 +261,7 @@ app.post("/api/auth/signup", async (req, res) => {
   try {
     // Check if user already exists
     const existingUser = await mainDB.query(
-      'SELECT user_id FROM users WHERE email = $1',
+      "SELECT user_id FROM public.users WHERE email = $1",
       [email]
     );
 
@@ -180,8 +271,8 @@ app.post("/api/auth/signup", async (req, res) => {
 
     // Create new user with password (default role: customer)
     const result = await mainDB.query(
-      'INSERT INTO users (username, email, password, phone, address, role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id, username, email, phone, address, role',
-      [username, email, password, phone || '', address || '', 'customer']
+      "INSERT INTO public.users (username, email, password, phone, address, role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id, username, email, phone, address, role",
+      [username, email, password, phone || "", address || "", "customer"]
     );
 
     const user = result.rows[0];
@@ -191,10 +282,10 @@ app.post("/api/auth/signup", async (req, res) => {
       email: user.email,
       phone: user.phone,
       address: user.address,
-      role: user.role
+      role: user.role,
     });
   } catch (err) {
-    console.error('Signup error:', err);
+    console.error("Signup error:", err);
     res.status(500).json({ error: "Failed to create account" });
   }
 });
@@ -205,7 +296,7 @@ app.post("/api/auth/login", async (req, res) => {
 
   try {
     const result = await mainDB.query(
-      'SELECT user_id, username, email, phone, address, role FROM users WHERE email = $1 AND password = $2',
+      "SELECT user_id, username, email, phone, address, role FROM public.users WHERE email = $1 AND password = $2",
       [email, password]
     );
 
@@ -220,10 +311,10 @@ app.post("/api/auth/login", async (req, res) => {
       email: user.email,
       phone: user.phone,
       address: user.address,
-      role: user.role || 'customer'
+      role: user.role || "customer",
     });
   } catch (err) {
-    console.error('Login error:', err);
+    console.error("Login error:", err);
     res.status(500).json({ error: "Login failed" });
   }
 });
@@ -274,7 +365,7 @@ app.get("/api/admin/orders", async (req, res) => {
 
     res.json(ordersResult.rows);
   } catch (err) {
-    console.error('Get all orders error:', err);
+    console.error("Get all orders error:", err);
     res.status(500).json({ error: "Failed to fetch orders" });
   }
 });
@@ -286,34 +377,43 @@ app.put("/api/admin/orders/:orderId/status", async (req, res) => {
   const { status } = req.body;
 
   // Validate status
-  const validStatuses = ['PENDING', 'PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+  const validStatuses = [
+    "PENDING",
+    "PAID",
+    "SHIPPED",
+    "DELIVERED",
+    "CANCELLED",
+  ];
   if (!validStatuses.includes(status)) {
     return res.status(400).json({ error: "Invalid status" });
   }
 
   const client = await mainDB.connect();
-  
+
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
     // Get current order status
     const currentOrder = await client.query(
-      'SELECT status FROM orders WHERE order_id = $1',
+      "SELECT status FROM orders WHERE order_id = $1",
       [orderId]
     );
 
     if (currentOrder.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Order not found" });
     }
 
     const currentStatus = currentOrder.rows[0].status;
 
     // ⚡ If changing from PENDING to PAID or SHIPPED, decrement stock
-    if (currentStatus === 'PENDING' && (status === 'PAID' || status === 'SHIPPED')) {
+    if (
+      currentStatus === "PENDING" &&
+      (status === "PAID" || status === "SHIPPED")
+    ) {
       // Get all order items
       const orderItems = await client.query(
-        'SELECT album_id, quantity FROM order_items WHERE order_id = $1',
+        "SELECT album_id, quantity FROM order_items WHERE order_id = $1",
         [orderId]
       );
 
@@ -321,7 +421,7 @@ app.put("/api/admin/orders/:orderId/status", async (req, res) => {
       for (const item of orderItems.rows) {
         // Check if enough stock is available
         const stockCheck = await client.query(
-          'SELECT stock_quantity FROM albums WHERE album_id = $1',
+          "SELECT stock_quantity FROM albums WHERE album_id = $1",
           [item.album_id]
         );
 
@@ -331,29 +431,34 @@ app.put("/api/admin/orders/:orderId/status", async (req, res) => {
 
         const availableStock = stockCheck.rows[0].stock_quantity;
         if (availableStock < item.quantity) {
-          throw new Error(`Insufficient stock for album ${item.album_id}. Available: ${availableStock}, Requested: ${item.quantity}`);
+          throw new Error(
+            `Insufficient stock for album ${item.album_id}. Available: ${availableStock}, Requested: ${item.quantity}`
+          );
         }
 
         // Decrement stock
         await client.query(
-          'UPDATE albums SET stock_quantity = stock_quantity - $1 WHERE album_id = $2',
+          "UPDATE albums SET stock_quantity = stock_quantity - $1 WHERE album_id = $2",
           [item.quantity, item.album_id]
         );
       }
     }
 
     // ⚡ If changing to CANCELLED and was previously confirmed (PAID/SHIPPED), restore stock
-    if ((currentStatus === 'PAID' || currentStatus === 'SHIPPED') && status === 'CANCELLED') {
+    if (
+      (currentStatus === "PAID" || currentStatus === "SHIPPED") &&
+      status === "CANCELLED"
+    ) {
       // Get all order items
       const orderItems = await client.query(
-        'SELECT album_id, quantity FROM order_items WHERE order_id = $1',
+        "SELECT album_id, quantity FROM order_items WHERE order_id = $1",
         [orderId]
       );
 
       // Restore stock for each item
       for (const item of orderItems.rows) {
         await client.query(
-          'UPDATE albums SET stock_quantity = stock_quantity + $1 WHERE album_id = $2',
+          "UPDATE albums SET stock_quantity = stock_quantity + $1 WHERE album_id = $2",
           [item.quantity, item.album_id]
         );
       }
@@ -361,21 +466,27 @@ app.put("/api/admin/orders/:orderId/status", async (req, res) => {
 
     // Update order status
     const result = await client.query(
-      'UPDATE orders SET status = $1 WHERE order_id = $2 RETURNING *',
+      "UPDATE orders SET status = $1 WHERE order_id = $2 RETURNING *",
       [status, orderId]
     );
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
 
-    res.json({ 
-      message: "Order status updated", 
+    res.json({
+      message: "Order status updated",
       order: result.rows[0],
-      stockUpdated: (currentStatus === 'PENDING' && (status === 'PAID' || status === 'SHIPPED')) ? true : false
+      stockUpdated:
+        currentStatus === "PENDING" &&
+        (status === "PAID" || status === "SHIPPED")
+          ? true
+          : false,
     });
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Update order status error:', err);
-    res.status(500).json({ error: err.message || "Failed to update order status" });
+    await client.query("ROLLBACK");
+    console.error("Update order status error:", err);
+    res
+      .status(500)
+      .json({ error: err.message || "Failed to update order status" });
   } finally {
     client.release();
   }
@@ -387,7 +498,8 @@ app.get("/api/orders/user/:userId", async (req, res) => {
 
   try {
     // Get orders
-    const ordersResult = await mainDB.query(`
+    const ordersResult = await mainDB.query(
+      `
       SELECT 
         o.order_id,
         o.order_date,
@@ -398,12 +510,15 @@ app.get("/api/orders/user/:userId", async (req, res) => {
       FROM orders o
       WHERE o.user_id = $1
       ORDER BY o.order_id ASC
-    `, [userId]);
+    `,
+      [userId]
+    );
 
     // Get order items for each order
     const ordersWithItems = await Promise.all(
       ordersResult.rows.map(async (order) => {
-        const itemsResult = await mainDB.query(`
+        const itemsResult = await mainDB.query(
+          `
           SELECT 
             oi.quantity,
             oi.price,
@@ -413,28 +528,33 @@ app.get("/api/orders/user/:userId", async (req, res) => {
           JOIN albums al ON oi.album_id = al.album_id
           JOIN artists ar ON al.artist_id = ar.artist_id
           WHERE oi.order_id = $1
-        `, [order.order_id]);
+        `,
+          [order.order_id]
+        );
 
         // Get payment info
-        const paymentResult = await mainDB.query(`
+        const paymentResult = await mainDB.query(
+          `
           SELECT method, status
           FROM payments
           WHERE order_id = $1
           LIMIT 1
-        `, [order.order_id]);
+        `,
+          [order.order_id]
+        );
 
         return {
           ...order,
           items: itemsResult.rows,
           payment_method: paymentResult.rows[0]?.method,
-          payment_status: paymentResult.rows[0]?.status
+          payment_status: paymentResult.rows[0]?.status,
         };
       })
     );
 
     res.json(ordersWithItems);
   } catch (err) {
-    console.error('Get orders error:', err);
+    console.error("Get orders error:", err);
     res.status(500).json({ error: "Failed to fetch orders" });
   }
 });
@@ -446,7 +566,8 @@ app.get("/api/cart/:userId", async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const result = await mainDB.query(`
+    const result = await mainDB.query(
+      `
       SELECT 
         ci.cart_item_id,
         ci.album_id,
@@ -462,11 +583,13 @@ app.get("/api/cart/:userId", async (req, res) => {
       JOIN companies c ON ar.company_id = c.company_id
       WHERE ci.user_id = $1
       ORDER BY ci.added_at DESC
-    `, [userId]);
+    `,
+      [userId]
+    );
 
     res.json(result.rows);
   } catch (err) {
-    console.error('Get cart error:', err);
+    console.error("Get cart error:", err);
     res.status(500).json({ error: "Failed to fetch cart" });
   }
 });
@@ -474,7 +597,7 @@ app.get("/api/cart/:userId", async (req, res) => {
 // Add item to cart
 /**
  * POST /api/cart - Add item to cart with stock validation
- * 
+ *
  * Stock Management Features:
  * - Checks available stock before adding to cart
  * - Prevents adding more than available quantity
@@ -487,7 +610,7 @@ app.post("/api/cart", async (req, res) => {
   try {
     // Check stock availability before allowing add to cart
     const stockCheck = await mainDB.query(
-      'SELECT stock_quantity FROM albums WHERE album_id = $1',
+      "SELECT stock_quantity FROM albums WHERE album_id = $1",
       [albumId]
     );
 
@@ -499,47 +622,47 @@ app.post("/api/cart", async (req, res) => {
 
     // Check if item already exists in cart
     const existing = await mainDB.query(
-      'SELECT cart_item_id, quantity FROM cart_items WHERE user_id = $1 AND album_id = $2',
+      "SELECT cart_item_id, quantity FROM cart_items WHERE user_id = $1 AND album_id = $2",
       [userId, albumId]
     );
 
     let result;
     if (existing.rows.length > 0) {
       const newQuantity = existing.rows[0].quantity + quantity;
-      
+
       // Check if new quantity exceeds stock
       if (newQuantity > availableStock) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: `Only ${availableStock} items available in stock`,
           availableStock: availableStock,
-          currentInCart: existing.rows[0].quantity
+          currentInCart: existing.rows[0].quantity,
         });
       }
 
       // Update quantity
       result = await mainDB.query(
-        'UPDATE cart_items SET quantity = quantity + $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND album_id = $3 RETURNING *',
+        "UPDATE cart_items SET quantity = quantity + $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND album_id = $3 RETURNING *",
         [quantity, userId, albumId]
       );
     } else {
       // Check if quantity exceeds stock
       if (quantity > availableStock) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: `Only ${availableStock} items available in stock`,
-          availableStock: availableStock
+          availableStock: availableStock,
         });
       }
 
       // Insert new item
       result = await mainDB.query(
-        'INSERT INTO cart_items (user_id, album_id, quantity) VALUES ($1, $2, $3) RETURNING *',
+        "INSERT INTO cart_items (user_id, album_id, quantity) VALUES ($1, $2, $3) RETURNING *",
         [userId, albumId, quantity]
       );
     }
 
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Add to cart error:', err);
+    console.error("Add to cart error:", err);
     res.status(500).json({ error: "Failed to add to cart" });
   }
 });
@@ -553,14 +676,14 @@ app.put("/api/cart/:userId/:albumId", async (req, res) => {
     if (quantity <= 0) {
       // Remove item if quantity is 0 or less
       await mainDB.query(
-        'DELETE FROM cart_items WHERE user_id = $1 AND album_id = $2',
+        "DELETE FROM cart_items WHERE user_id = $1 AND album_id = $2",
         [userId, albumId]
       );
       res.json({ message: "Item removed from cart" });
     } else {
       // Check stock availability
       const stockCheck = await mainDB.query(
-        'SELECT stock_quantity FROM albums WHERE album_id = $1',
+        "SELECT stock_quantity FROM albums WHERE album_id = $1",
         [albumId]
       );
 
@@ -569,23 +692,23 @@ app.put("/api/cart/:userId/:albumId", async (req, res) => {
       }
 
       const availableStock = stockCheck.rows[0].stock_quantity;
-      
+
       if (quantity > availableStock) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: `Only ${availableStock} items available in stock`,
-          availableStock: availableStock
+          availableStock: availableStock,
         });
       }
 
       // Update quantity
       const result = await mainDB.query(
-        'UPDATE cart_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND album_id = $3 RETURNING *',
+        "UPDATE cart_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2 AND album_id = $3 RETURNING *",
         [quantity, userId, albumId]
       );
       res.json(result.rows[0]);
     }
   } catch (err) {
-    console.error('Update cart error:', err);
+    console.error("Update cart error:", err);
     res.status(500).json({ error: "Failed to update cart" });
   }
 });
@@ -596,12 +719,12 @@ app.delete("/api/cart/:userId/:albumId", async (req, res) => {
 
   try {
     await mainDB.query(
-      'DELETE FROM cart_items WHERE user_id = $1 AND album_id = $2',
+      "DELETE FROM cart_items WHERE user_id = $1 AND album_id = $2",
       [userId, albumId]
     );
     res.json({ message: "Item removed from cart" });
   } catch (err) {
-    console.error('Remove from cart error:', err);
+    console.error("Remove from cart error:", err);
     res.status(500).json({ error: "Failed to remove from cart" });
   }
 });
@@ -611,13 +734,10 @@ app.delete("/api/cart/:userId", async (req, res) => {
   const { userId } = req.params;
 
   try {
-    await mainDB.query(
-      'DELETE FROM cart_items WHERE user_id = $1',
-      [userId]
-    );
+    await mainDB.query("DELETE FROM cart_items WHERE user_id = $1", [userId]);
     res.json({ message: "Cart cleared" });
   } catch (err) {
-    console.error('Clear cart error:', err);
+    console.error("Clear cart error:", err);
     res.status(500).json({ error: "Failed to clear cart" });
   }
 });
@@ -627,14 +747,14 @@ app.post("/api/orders", async (req, res) => {
   const { user, items, payment, total_amount } = req.body;
 
   const client = await mainDB.connect();
-  
+
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
     // 1. Create or get user
     let userId;
     const userCheck = await client.query(
-      'SELECT user_id FROM users WHERE email = $1',
+      "SELECT user_id FROM users WHERE email = $1",
       [user.email]
     );
 
@@ -642,22 +762,28 @@ app.post("/api/orders", async (req, res) => {
       userId = userCheck.rows[0].user_id;
       // Update user info (allow users to update their details at checkout)
       await client.query(
-        'UPDATE users SET username = $1, phone = $2, address = $3 WHERE user_id = $4',
+        "UPDATE users SET username = $1, phone = $2, address = $3 WHERE user_id = $4",
         [user.username, user.phone, user.address, userId]
       );
     } else {
       // Create new user (password is optional for guest checkout)
       const newUser = await client.query(
-        'INSERT INTO users (username, email, phone, address, password) VALUES ($1, $2, $3, $4, $5) RETURNING user_id',
-        [user.username, user.email, user.phone, user.address, user.password || null]
+        "INSERT INTO users (username, email, phone, address, password) VALUES ($1, $2, $3, $4, $5) RETURNING user_id",
+        [
+          user.username,
+          user.email,
+          user.phone,
+          user.address,
+          user.password || null,
+        ]
       );
       userId = newUser.rows[0].user_id;
     }
 
     // 2. Create order
     const orderResult = await client.query(
-      'INSERT INTO orders (user_id, total_amount, status, shipping_address, phone) VALUES ($1, $2, $3, $4, $5) RETURNING order_id',
-      [userId, total_amount, 'PENDING', user.address, user.phone]
+      "INSERT INTO orders (user_id, total_amount, status, shipping_address, phone) VALUES ($1, $2, $3, $4, $5) RETURNING order_id",
+      [userId, total_amount, "PENDING", user.address, user.phone]
     );
     const orderId = orderResult.rows[0].order_id;
 
@@ -669,7 +795,7 @@ app.post("/api/orders", async (req, res) => {
     for (const item of items) {
       // Validate album exists
       const albumCheck = await client.query(
-        'SELECT album_id FROM albums WHERE album_id = $1',
+        "SELECT album_id FROM albums WHERE album_id = $1",
         [item.album_id]
       );
 
@@ -679,39 +805,36 @@ app.post("/api/orders", async (req, res) => {
 
       // Insert order item (no stock decrement yet)
       await client.query(
-        'INSERT INTO order_items (order_id, album_id, quantity, price) VALUES ($1, $2, $3, $4)',
+        "INSERT INTO order_items (order_id, album_id, quantity, price) VALUES ($1, $2, $3, $4)",
         [orderId, item.album_id, item.quantity, item.price]
       );
     }
 
     // 4. Create payment record
     await client.query(
-      'INSERT INTO payments (order_id, method, amount, status) VALUES ($1, $2, $3, $4)',
-      [orderId, payment.method, payment.amount, 'COMPLETED']
+      "INSERT INTO payments (order_id, method, amount, status) VALUES ($1, $2, $3, $4)",
+      [orderId, payment.method, payment.amount, "COMPLETED"]
     );
 
     // 5. Keep order status as PENDING (admin will confirm later)
     // Order will remain PENDING until admin reviews and updates the status
 
     // 6. Clear user's cart after successful order
-    await client.query(
-      'DELETE FROM cart_items WHERE user_id = $1',
-      [userId]
-    );
+    await client.query("DELETE FROM cart_items WHERE user_id = $1", [userId]);
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
 
-    res.json({ 
+    res.json({
       message: "Order placed successfully",
       order_id: orderId,
       user: { email: user.email },
       total_amount: total_amount,
-      status: 'PAID',
-      payment: { method: payment.method }
+      status: "PAID",
+      payment: { method: payment.method },
     });
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Order creation error:', err);
+    await client.query("ROLLBACK");
+    console.error("Order creation error:", err);
     res.status(500).json({ error: err.message || "Failed to place order" });
   } finally {
     client.release();
@@ -751,7 +874,7 @@ app.get("/api/admin/albums", async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
-    console.error('Get albums error:', err);
+    console.error("Get albums error:", err);
     res.status(500).json({ error: "Failed to fetch albums" });
   }
 });
@@ -764,14 +887,14 @@ app.post("/api/admin/albums", async (req, res) => {
 
   const insertAlbum = async () => {
     return mainDB.query(
-      'INSERT INTO albums (title, artist_id, price, release_date, stock_quantity, image_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      "INSERT INTO albums (title, artist_id, price, release_date, stock_quantity, image_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
       [
         validation.title,
         validation.artistId,
         validation.price,
         validation.releaseDate || null,
         validation.stockQuantity,
-        validation.imageUrl
+        validation.imageUrl,
       ]
     );
   };
@@ -780,14 +903,22 @@ app.post("/api/admin/albums", async (req, res) => {
     const result = await insertAlbum();
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Create album error:', err);
+    console.error("Create album error:", err);
 
-    if (err.code === '23505' && err.constraint === 'unique_album_per_artist') {
-      return res.status(400).json({ error: formatValidationError('album', ACTIONS.create, "This title already exists for the selected artist") });
+    if (err.code === "23505" && err.constraint === "unique_album_per_artist") {
+      return res
+        .status(400)
+        .json({
+          error: formatValidationError(
+            "album",
+            ACTIONS.create,
+            "This title already exists for the selected artist"
+          ),
+        });
     }
 
     // Handle out-of-sync sequence errors by fixing and retrying once
-    if (err.code === '23505' && err.constraint === 'albums_pkey') {
+    if (err.code === "23505" && err.constraint === "albums_pkey") {
       try {
         await mainDB.query(
           "SELECT setval('albums_album_id_seq', (SELECT COALESCE(MAX(album_id), 1) FROM albums), true)"
@@ -795,9 +926,13 @@ app.post("/api/admin/albums", async (req, res) => {
         const retryResult = await insertAlbum();
         return res.json(retryResult.rows[0]);
       } catch (seqErr) {
-        console.error('Album sequence repair error:', seqErr);
-        return res.status(500).json({ 
-          error: formatValidationError('album', ACTIONS.create, "Database sequence is out of sync. Please contact an administrator.") 
+        console.error("Album sequence repair error:", seqErr);
+        return res.status(500).json({
+          error: formatValidationError(
+            "album",
+            ACTIONS.create,
+            "Database sequence is out of sync. Please contact an administrator."
+          ),
         });
       }
     }
@@ -810,7 +945,15 @@ app.put("/api/admin/albums/:id", async (req, res) => {
   const { id } = req.params;
   const numericId = parseInteger(id);
   if (!numericId) {
-    return res.status(400).json({ error: formatValidationError('album', ACTIONS.update, "Invalid album ID") });
+    return res
+      .status(400)
+      .json({
+        error: formatValidationError(
+          "album",
+          ACTIONS.update,
+          "Invalid album ID"
+        ),
+      });
   }
 
   const validation = validateAlbumPayload(req.body, ACTIONS.update);
@@ -820,7 +963,7 @@ app.put("/api/admin/albums/:id", async (req, res) => {
 
   try {
     const result = await mainDB.query(
-      'UPDATE albums SET title = $1, artist_id = $2, price = $3, release_date = $4, stock_quantity = $5, image_url = $6 WHERE album_id = $7 RETURNING *',
+      "UPDATE albums SET title = $1, artist_id = $2, price = $3, release_date = $4, stock_quantity = $5, image_url = $6 WHERE album_id = $7 RETURNING *",
       [
         validation.title,
         validation.artistId,
@@ -828,7 +971,7 @@ app.put("/api/admin/albums/:id", async (req, res) => {
         validation.releaseDate || null,
         validation.stockQuantity,
         validation.imageUrl,
-        numericId
+        numericId,
       ]
     );
     if (result.rows.length === 0) {
@@ -836,9 +979,17 @@ app.put("/api/admin/albums/:id", async (req, res) => {
     }
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Update album error:', err);
-    if (err.code === '23505' && err.constraint === 'unique_album_per_artist') {
-      return res.status(400).json({ error: formatValidationError('album', ACTIONS.update, "This title already exists for the selected artist") });
+    console.error("Update album error:", err);
+    if (err.code === "23505" && err.constraint === "unique_album_per_artist") {
+      return res
+        .status(400)
+        .json({
+          error: formatValidationError(
+            "album",
+            ACTIONS.update,
+            "This title already exists for the selected artist"
+          ),
+        });
     }
     res.status(500).json({ error: "Failed to update album" });
   }
@@ -848,98 +999,119 @@ app.delete("/api/admin/albums/:id", async (req, res) => {
   const { id } = req.params;
   const numericId = parseInteger(id);
   if (!numericId) {
-    return res.status(400).json({ error: formatValidationError('album', ACTIONS.delete, "Invalid album ID") });
+    return res
+      .status(400)
+      .json({
+        error: formatValidationError(
+          "album",
+          ACTIONS.delete,
+          "Invalid album ID"
+        ),
+      });
   }
   const { force, setStockZero } = req.query; // force=true for cascade delete, setStockZero=true to disable instead
   const client = await mainDB.connect();
-  
+
   try {
-    await client.query('BEGIN');
-    
+    await client.query("BEGIN");
+
     // Option 1: Set stock to 0 instead of deleting
-    if (setStockZero === 'true') {
+    if (setStockZero === "true") {
       const result = await client.query(
-        'UPDATE albums SET stock_quantity = 0 WHERE album_id = $1 RETURNING *',
+        "UPDATE albums SET stock_quantity = 0 WHERE album_id = $1 RETURNING *",
         [numericId]
       );
-      
+
       if (result.rows.length === 0) {
-        await client.query('ROLLBACK');
+        await client.query("ROLLBACK");
         return res.status(404).json({ error: "Album not found" });
       }
-      
-      await client.query('COMMIT');
-      return res.json({ 
-        message: "Album stock set to 0 (disabled)", 
-        album: result.rows[0] 
+
+      await client.query("COMMIT");
+      return res.json({
+        message: "Album stock set to 0 (disabled)",
+        album: result.rows[0],
       });
     }
-    
+
     // Check if album has any orders
     const ordersCheck = await client.query(
-      'SELECT COUNT(*) as count FROM order_items WHERE album_id = $1',
+      "SELECT COUNT(*) as count FROM order_items WHERE album_id = $1",
       [numericId]
     );
-    
+
     const orderCount = parseInt(ordersCheck.rows[0].count);
-    
+
     // Option 2: Force delete with cascade
-    if (force === 'true' && orderCount > 0) {
+    if (force === "true" && orderCount > 0) {
       // Delete all order items first
-      await client.query('DELETE FROM order_items WHERE album_id = $1', [numericId]);
-      
+      await client.query("DELETE FROM order_items WHERE album_id = $1", [
+        numericId,
+      ]);
+
       // Remove from carts
-      await client.query('DELETE FROM cart_items WHERE album_id = $1', [numericId]);
-      
+      await client.query("DELETE FROM cart_items WHERE album_id = $1", [
+        numericId,
+      ]);
+
       // Delete the album
-      const result = await client.query('DELETE FROM albums WHERE album_id = $1 RETURNING *', [numericId]);
-      
+      const result = await client.query(
+        "DELETE FROM albums WHERE album_id = $1 RETURNING *",
+        [numericId]
+      );
+
       if (result.rows.length === 0) {
-        await client.query('ROLLBACK');
+        await client.query("ROLLBACK");
         return res.status(404).json({ error: "Album not found" });
       }
-      
-      await client.query('COMMIT');
-      return res.json({ 
+
+      await client.query("COMMIT");
+      return res.json({
         message: "Album and all related records deleted successfully",
-        deletedOrderItems: orderCount
+        deletedOrderItems: orderCount,
       });
     }
-    
+
     // Option 3: Safe delete (default)
     if (orderCount > 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ 
+      await client.query("ROLLBACK");
+      return res.status(400).json({
         error: "Cannot delete album with existing orders",
-        suggestion: "Use ?setStockZero=true to disable the album or ?force=true to delete everything",
-        orderCount: orderCount
+        suggestion:
+          "Use ?setStockZero=true to disable the album or ?force=true to delete everything",
+        orderCount: orderCount,
       });
     }
-    
+
     // Check if album is in any carts
     const cartCheck = await client.query(
-      'SELECT COUNT(*) as count FROM cart_items WHERE album_id = $1',
+      "SELECT COUNT(*) as count FROM cart_items WHERE album_id = $1",
       [numericId]
     );
-    
+
     // Remove from carts if present
     if (parseInt(cartCheck.rows[0].count) > 0) {
-      await client.query('DELETE FROM cart_items WHERE album_id = $1', [numericId]);
+      await client.query("DELETE FROM cart_items WHERE album_id = $1", [
+        numericId,
+      ]);
     }
-    
+
     // Delete the album
-    const result = await client.query('DELETE FROM albums WHERE album_id = $1 RETURNING *', [numericId]);
-    
+    const result = await client.query(
+      "DELETE FROM albums WHERE album_id = $1 RETURNING *",
+      [numericId]
+    );
+
     if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Album not found" });
     }
-    
-    await client.query('COMMIT');
+
+    await client.query("COMMIT");
     res.json({ message: "Album deleted successfully" });
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Delete album error:', err);
+    await client.query("ROLLBACK");
+    console.error("Delete album error:", err);
     res.status(500).json({ error: "Failed to delete album: " + err.message });
   } finally {
     client.release();
@@ -959,38 +1131,58 @@ app.get("/api/admin/artists", async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
-    console.error('Get artists error:', err);
+    console.error("Get artists error:", err);
     res.status(500).json({ error: "Failed to fetch artists" });
   }
 });
 
 app.post("/api/admin/artists", async (req, res) => {
   const { name, company_id, debut_year, fandom_name } = req.body;
-  
+
   // Validate required fields
   if (!name || !name.trim()) {
-    return res.status(400).json({ error: formatValidationError('artist', ACTIONS.create, "Name is required") });
+    return res
+      .status(400)
+      .json({
+        error: formatValidationError(
+          "artist",
+          ACTIONS.create,
+          "Name is required"
+        ),
+      });
   }
-  
+
   if (!company_id) {
-    return res.status(400).json({ error: formatValidationError('artist', ACTIONS.create, "Company is required") });
+    return res
+      .status(400)
+      .json({
+        error: formatValidationError(
+          "artist",
+          ACTIONS.create,
+          "Company is required"
+        ),
+      });
   }
-  
+
   try {
     const trimmedName = name.trim();
-    
+
     // Check for case-insensitive duplicate name
     const duplicateCheck = await mainDB.query(
-      'SELECT artist_id, name FROM artists WHERE LOWER(name) = LOWER($1)',
+      "SELECT artist_id, name FROM artists WHERE LOWER(name) = LOWER($1)",
       [trimmedName]
     );
-    
+
     if (duplicateCheck.rows.length > 0) {
-      return res.status(400).json({ 
-        error: formatValidationError('artist', ACTIONS.create, `An artist named "${duplicateCheck.rows[0].name}" already exists`)
+      return res.status(400).json({
+        error: formatValidationError(
+          "artist",
+          ACTIONS.create,
+          `An artist named "${duplicateCheck.rows[0].name}" already exists`
+        ),
       });
     }
-    
+
     // Fix sequence if it's out of sync (handles duplicate key errors)
     try {
       await mainDB.query(
@@ -998,20 +1190,34 @@ app.post("/api/admin/artists", async (req, res) => {
       );
     } catch (seqErr) {
       // Sequence might not exist or already be correct, continue anyway
-      console.log('Sequence sync note:', seqErr.message);
+      console.log("Sequence sync note:", seqErr.message);
     }
-    
+
     const result = await mainDB.query(
-      'INSERT INTO artists (name, company_id, debut_year, fandom_name) VALUES ($1, $2, $3, $4) RETURNING *',
-      [trimmedName, parseInt(company_id), debut_year || null, fandom_name ? fandom_name.trim() : null]
+      "INSERT INTO artists (name, company_id, debut_year, fandom_name) VALUES ($1, $2, $3, $4) RETURNING *",
+      [
+        trimmedName,
+        parseInt(company_id),
+        debut_year || null,
+        fandom_name ? fandom_name.trim() : null,
+      ]
     );
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Create artist error:', err);
+    console.error("Create artist error:", err);
     // Return more specific error message
-    if (err.code === '23503') { // Foreign key violation
-      res.status(400).json({ error: formatValidationError('artist', ACTIONS.create, "Invalid company selected") });
-    } else if (err.code === '23505' && err.constraint === 'artists_pkey') {
+    if (err.code === "23503") {
+      // Foreign key violation
+      res
+        .status(400)
+        .json({
+          error: formatValidationError(
+            "artist",
+            ACTIONS.create,
+            "Invalid company selected"
+          ),
+        });
+    } else if (err.code === "23505" && err.constraint === "artists_pkey") {
       // Primary key violation - sequence is out of sync, try to fix and retry once
       try {
         await mainDB.query(
@@ -1019,13 +1225,22 @@ app.post("/api/admin/artists", async (req, res) => {
         );
         // Retry the insert
         const retryResult = await mainDB.query(
-          'INSERT INTO artists (name, company_id, debut_year, fandom_name) VALUES ($1, $2, $3, $4) RETURNING *',
-          [trimmedName, parseInt(company_id), debut_year || null, fandom_name ? fandom_name.trim() : null]
+          "INSERT INTO artists (name, company_id, debut_year, fandom_name) VALUES ($1, $2, $3, $4) RETURNING *",
+          [
+            trimmedName,
+            parseInt(company_id),
+            debut_year || null,
+            fandom_name ? fandom_name.trim() : null,
+          ]
         );
         return res.json(retryResult.rows[0]);
       } catch (retryErr) {
-        res.status(500).json({ 
-          error: formatValidationError('artist', ACTIONS.create, "Database sequence is out of sync. Please contact an administrator.") 
+        res.status(500).json({
+          error: formatValidationError(
+            "artist",
+            ACTIONS.create,
+            "Database sequence is out of sync. Please contact an administrator."
+          ),
         });
       }
     } else {
@@ -1037,44 +1252,79 @@ app.post("/api/admin/artists", async (req, res) => {
 app.put("/api/admin/artists/:id", async (req, res) => {
   const { id } = req.params;
   const { name, company_id, debut_year, fandom_name } = req.body;
-  
+
   // Validate required fields
   if (!name || !name.trim()) {
-    return res.status(400).json({ error: formatValidationError('artist', ACTIONS.update, "Name is required") });
+    return res
+      .status(400)
+      .json({
+        error: formatValidationError(
+          "artist",
+          ACTIONS.update,
+          "Name is required"
+        ),
+      });
   }
-  
+
   if (!company_id) {
-    return res.status(400).json({ error: formatValidationError('artist', ACTIONS.update, "Company is required") });
+    return res
+      .status(400)
+      .json({
+        error: formatValidationError(
+          "artist",
+          ACTIONS.update,
+          "Company is required"
+        ),
+      });
   }
-  
+
   try {
     const trimmedName = name.trim();
-    
+
     // Check for case-insensitive duplicate name (excluding current artist)
     const duplicateCheck = await mainDB.query(
-      'SELECT artist_id, name FROM artists WHERE LOWER(name) = LOWER($1) AND artist_id != $2',
+      "SELECT artist_id, name FROM artists WHERE LOWER(name) = LOWER($1) AND artist_id != $2",
       [trimmedName, parseInt(id)]
     );
-    
+
     if (duplicateCheck.rows.length > 0) {
-      return res.status(400).json({ 
-        error: formatValidationError('artist', ACTIONS.update, `An artist named "${duplicateCheck.rows[0].name}" already exists`)
+      return res.status(400).json({
+        error: formatValidationError(
+          "artist",
+          ACTIONS.update,
+          `An artist named "${duplicateCheck.rows[0].name}" already exists`
+        ),
       });
     }
-    
+
     const result = await mainDB.query(
-      'UPDATE artists SET name = $1, company_id = $2, debut_year = $3, fandom_name = $4 WHERE artist_id = $5 RETURNING *',
-      [trimmedName, parseInt(company_id), debut_year || null, fandom_name ? fandom_name.trim() : null, parseInt(id)]
+      "UPDATE artists SET name = $1, company_id = $2, debut_year = $3, fandom_name = $4 WHERE artist_id = $5 RETURNING *",
+      [
+        trimmedName,
+        parseInt(company_id),
+        debut_year || null,
+        fandom_name ? fandom_name.trim() : null,
+        parseInt(id),
+      ]
     );
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Artist not found" });
     }
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Update artist error:', err);
-    if (err.code === '23503') { // Foreign key violation
-      res.status(400).json({ error: formatValidationError('artist', ACTIONS.update, "Invalid company selected") });
+    console.error("Update artist error:", err);
+    if (err.code === "23503") {
+      // Foreign key violation
+      res
+        .status(400)
+        .json({
+          error: formatValidationError(
+            "artist",
+            ACTIONS.update,
+            "Invalid company selected"
+          ),
+        });
     } else {
       res.status(500).json({ error: err.message || "Failed to update artist" });
     }
@@ -1085,81 +1335,99 @@ app.delete("/api/admin/artists/:id", async (req, res) => {
   const { id } = req.params;
   const numericId = parseInteger(id);
   if (!numericId) {
-    return res.status(400).json({ error: formatValidationError('artist', ACTIONS.delete, "Invalid artist ID") });
+    return res
+      .status(400)
+      .json({
+        error: formatValidationError(
+          "artist",
+          ACTIONS.delete,
+          "Invalid artist ID"
+        ),
+      });
   }
   const { force } = req.query; // force=true for cascade delete
   const client = await mainDB.connect();
-  
+
   try {
-    await client.query('BEGIN');
-    
+    await client.query("BEGIN");
+
     // Check if artist has any albums
     const albumsCheck = await client.query(
-      'SELECT album_id FROM albums WHERE artist_id = $1',
+      "SELECT album_id FROM albums WHERE artist_id = $1",
       [numericId]
     );
-    
+
     const albumCount = albumsCheck.rows.length;
-    
+
     // Option 1: Force delete with cascade
-    if (force === 'true' && albumCount > 0) {
+    if (force === "true" && albumCount > 0) {
       let deletedOrderItems = 0;
-      
+
       // For each album, delete related records
       for (const album of albumsCheck.rows) {
         // Delete order items
         const orderItemsResult = await client.query(
-          'DELETE FROM order_items WHERE album_id = $1',
+          "DELETE FROM order_items WHERE album_id = $1",
           [album.album_id]
         );
         deletedOrderItems += orderItemsResult.rowCount;
-        
+
         // Delete cart items
-        await client.query('DELETE FROM cart_items WHERE album_id = $1', [album.album_id]);
+        await client.query("DELETE FROM cart_items WHERE album_id = $1", [
+          album.album_id,
+        ]);
       }
-      
+
       // Delete all albums
-      await client.query('DELETE FROM albums WHERE artist_id = $1', [numericId]);
-      
+      await client.query("DELETE FROM albums WHERE artist_id = $1", [
+        numericId,
+      ]);
+
       // Delete the artist
-      const result = await client.query('DELETE FROM artists WHERE artist_id = $1 RETURNING *', [numericId]);
-      
+      const result = await client.query(
+        "DELETE FROM artists WHERE artist_id = $1 RETURNING *",
+        [numericId]
+      );
+
       if (result.rows.length === 0) {
-        await client.query('ROLLBACK');
+        await client.query("ROLLBACK");
         return res.status(404).json({ error: "Artist not found" });
       }
-      
-      await client.query('COMMIT');
-      return res.json({ 
+
+      await client.query("COMMIT");
+      return res.json({
         message: "Artist and all related records deleted successfully",
         deletedAlbums: albumCount,
-        deletedOrderItems: deletedOrderItems
+        deletedOrderItems: deletedOrderItems,
       });
     }
-    
+
     // Option 2: Safe delete (default)
     if (albumCount > 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ 
+      await client.query("ROLLBACK");
+      return res.status(400).json({
         error: "Cannot delete artist with existing albums",
         suggestion: "Use ?force=true to delete artist and all related albums",
-        albumCount: albumCount
+        albumCount: albumCount,
       });
     }
-    
+
     // Delete the artist
-    const result = await client.query('DELETE FROM artists WHERE artist_id = $1 RETURNING *', [numericId]);
-    
+    const result = await client.query(
+      "DELETE FROM artists WHERE artist_id = $1 RETURNING *",
+      [numericId]
+    );
+
     if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Artist not found" });
     }
-    
-    await client.query('COMMIT');
+
+    await client.query("COMMIT");
     res.json({ message: "Artist deleted successfully" });
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Delete artist error:', err);
+    await client.query("ROLLBACK");
+    console.error("Delete artist error:", err);
     res.status(500).json({ error: "Failed to delete artist: " + err.message });
   } finally {
     client.release();
@@ -1169,10 +1437,12 @@ app.delete("/api/admin/artists/:id", async (req, res) => {
 // COMPANIES CRUD
 app.get("/api/admin/companies", async (req, res) => {
   try {
-    const result = await mainDB.query('SELECT * FROM companies WHERE company_id != 0 ORDER BY company_id ASC');
+    const result = await mainDB.query(
+      "SELECT * FROM companies WHERE company_id != 0 ORDER BY company_id ASC"
+    );
     res.json(result.rows);
   } catch (err) {
-    console.error('Get companies error:', err);
+    console.error("Get companies error:", err);
     res.status(500).json({ error: "Failed to fetch companies" });
   }
 });
@@ -1185,8 +1455,13 @@ app.post("/api/admin/companies", async (req, res) => {
 
   const insertCompany = async () => {
     return mainDB.query(
-      'INSERT INTO companies (name, headquarters, founded_year, ceo_name) VALUES ($1, $2, $3, $4) RETURNING *',
-      [validation.name, validation.headquarters, validation.foundedYear, validation.ceoName]
+      "INSERT INTO companies (name, headquarters, founded_year, ceo_name) VALUES ($1, $2, $3, $4) RETURNING *",
+      [
+        validation.name,
+        validation.headquarters,
+        validation.foundedYear,
+        validation.ceoName,
+      ]
     );
   };
 
@@ -1194,13 +1469,21 @@ app.post("/api/admin/companies", async (req, res) => {
     const result = await insertCompany();
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Create company error:', err);
+    console.error("Create company error:", err);
 
-    if (err.code === '23505' && err.constraint === 'companies_name_key') {
-      return res.status(400).json({ error: formatValidationError('company', ACTIONS.create, "A company with this name already exists") });
+    if (err.code === "23505" && err.constraint === "companies_name_key") {
+      return res
+        .status(400)
+        .json({
+          error: formatValidationError(
+            "company",
+            ACTIONS.create,
+            "A company with this name already exists"
+          ),
+        });
     }
 
-    if (err.code === '23505' && err.constraint === 'companies_pkey') {
+    if (err.code === "23505" && err.constraint === "companies_pkey") {
       try {
         await mainDB.query(
           "SELECT setval('companies_company_id_seq', (SELECT COALESCE(MAX(company_id), 1) FROM companies), true)"
@@ -1208,9 +1491,13 @@ app.post("/api/admin/companies", async (req, res) => {
         const retryResult = await insertCompany();
         return res.json(retryResult.rows[0]);
       } catch (seqErr) {
-        console.error('Company sequence repair error:', seqErr);
+        console.error("Company sequence repair error:", seqErr);
         return res.status(500).json({
-          error: formatValidationError('company', ACTIONS.create, "Database sequence is out of sync. Please contact an administrator.")
+          error: formatValidationError(
+            "company",
+            ACTIONS.create,
+            "Database sequence is out of sync. Please contact an administrator."
+          ),
         });
       }
     }
@@ -1223,7 +1510,15 @@ app.put("/api/admin/companies/:id", async (req, res) => {
   const { id } = req.params;
   const numericId = parseInteger(id);
   if (!numericId) {
-    return res.status(400).json({ error: formatValidationError('company', ACTIONS.update, "Invalid company ID") });
+    return res
+      .status(400)
+      .json({
+        error: formatValidationError(
+          "company",
+          ACTIONS.update,
+          "Invalid company ID"
+        ),
+      });
   }
 
   const validation = validateCompanyPayload(req.body, ACTIONS.update);
@@ -1233,17 +1528,31 @@ app.put("/api/admin/companies/:id", async (req, res) => {
 
   try {
     const result = await mainDB.query(
-      'UPDATE companies SET name = $1, headquarters = $2, founded_year = $3, ceo_name = $4 WHERE company_id = $5 RETURNING *',
-      [validation.name, validation.headquarters, validation.foundedYear, validation.ceoName, numericId]
+      "UPDATE companies SET name = $1, headquarters = $2, founded_year = $3, ceo_name = $4 WHERE company_id = $5 RETURNING *",
+      [
+        validation.name,
+        validation.headquarters,
+        validation.foundedYear,
+        validation.ceoName,
+        numericId,
+      ]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Company not found" });
     }
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Update company error:', err);
-    if (err.code === '23505' && err.constraint === 'companies_name_key') {
-      return res.status(400).json({ error: formatValidationError('company', ACTIONS.update, "A company with this name already exists") });
+    console.error("Update company error:", err);
+    if (err.code === "23505" && err.constraint === "companies_name_key") {
+      return res
+        .status(400)
+        .json({
+          error: formatValidationError(
+            "company",
+            ACTIONS.update,
+            "A company with this name already exists"
+          ),
+        });
     }
     res.status(500).json({ error: "Failed to update company" });
   }
@@ -1253,99 +1562,122 @@ app.delete("/api/admin/companies/:id", async (req, res) => {
   const { id } = req.params;
   const numericId = parseInteger(id);
   if (!numericId) {
-    return res.status(400).json({ error: formatValidationError('company', ACTIONS.delete, "Invalid company ID") });
+    return res
+      .status(400)
+      .json({
+        error: formatValidationError(
+          "company",
+          ACTIONS.delete,
+          "Invalid company ID"
+        ),
+      });
   }
   const { force } = req.query; // force=true for cascade delete
   const client = await mainDB.connect();
-  
+
   try {
-    await client.query('BEGIN');
-    
+    await client.query("BEGIN");
+
     // Check if company has any artists
     const artistsCheck = await client.query(
-      'SELECT artist_id FROM artists WHERE company_id = $1',
+      "SELECT artist_id FROM artists WHERE company_id = $1",
       [numericId]
     );
-    
+
     const artistCount = artistsCheck.rows.length;
-    
+
     // Option 1: Force delete with cascade
-    if (force === 'true' && artistCount > 0) {
+    if (force === "true" && artistCount > 0) {
       let deletedAlbums = 0;
       let deletedOrderItems = 0;
-      
+
       // For each artist, delete all related records
       for (const artist of artistsCheck.rows) {
         // Get all albums for this artist
         const albumsCheck = await client.query(
-          'SELECT album_id FROM albums WHERE artist_id = $1',
+          "SELECT album_id FROM albums WHERE artist_id = $1",
           [artist.artist_id]
         );
-        
+
         deletedAlbums += albumsCheck.rows.length;
-        
+
         // For each album, delete related records
         for (const album of albumsCheck.rows) {
           // Delete order items
           const orderItemsResult = await client.query(
-            'DELETE FROM order_items WHERE album_id = $1',
+            "DELETE FROM order_items WHERE album_id = $1",
             [album.album_id]
           );
           deletedOrderItems += orderItemsResult.rowCount;
-          
+
           // Delete cart items
-          await client.query('DELETE FROM cart_items WHERE album_id = $1', [album.album_id]);
+          await client.query("DELETE FROM cart_items WHERE album_id = $1", [
+            album.album_id,
+          ]);
         }
-        
+
         // Delete all albums for this artist
-        await client.query('DELETE FROM albums WHERE artist_id = $1', [artist.artist_id]);
+        await client.query("DELETE FROM albums WHERE artist_id = $1", [
+          artist.artist_id,
+        ]);
       }
-      
+
       // Delete all artists
-      await client.query('DELETE FROM artists WHERE company_id = $1', [numericId]);
-      
+      await client.query("DELETE FROM artists WHERE company_id = $1", [
+        numericId,
+      ]);
+
       // Delete the company
-      const result = await client.query('DELETE FROM companies WHERE company_id = $1 RETURNING *', [numericId]);
-      
+      const result = await client.query(
+        "DELETE FROM companies WHERE company_id = $1 RETURNING *",
+        [numericId]
+      );
+
       if (result.rows.length === 0) {
-        await client.query('ROLLBACK');
+        await client.query("ROLLBACK");
         return res.status(404).json({ error: "Company not found" });
       }
-      
-      await client.query('COMMIT');
-      return res.json({ 
+
+      await client.query("COMMIT");
+      return res.json({
         message: "Company and all related records deleted successfully",
         deletedArtists: artistCount,
         deletedAlbums: deletedAlbums,
-        deletedOrderItems: deletedOrderItems
+        deletedOrderItems: deletedOrderItems,
       });
     }
-    
+
     // Option 2: Safe delete (default) - Set artists' company_id to 0 (fallback company)
     if (artistCount > 0) {
       // Update all artists to have company_id = 0 (fallback company)
       await client.query(
-        'UPDATE artists SET company_id = 0 WHERE company_id = $1',
+        "UPDATE artists SET company_id = 0 WHERE company_id = $1",
         [numericId]
       );
     }
-    
+
     // Delete the company
-    const result = await client.query('DELETE FROM companies WHERE company_id = $1 RETURNING *', [numericId]);
-    
+    const result = await client.query(
+      "DELETE FROM companies WHERE company_id = $1 RETURNING *",
+      [numericId]
+    );
+
     if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "Company not found" });
     }
-    
-    await client.query('COMMIT');
-    res.json({ 
+
+    await client.query("COMMIT");
+    res.json({
       message: "Company deleted successfully",
-      artistsReassigned: artistCount > 0 ? `${artistCount} artist(s) reassigned to fallback company (ID: 0)` : null
+      artistsReassigned:
+        artistCount > 0
+          ? `${artistCount} artist(s) reassigned to fallback company (ID: 0)`
+          : null,
     });
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Delete company error:', err);
+    await client.query("ROLLBACK");
+    console.error("Delete company error:", err);
     res.status(500).json({ error: "Failed to delete company: " + err.message });
   } finally {
     client.release();
@@ -1355,10 +1687,12 @@ app.delete("/api/admin/companies/:id", async (req, res) => {
 // USERS CRUD
 app.get("/api/admin/users", async (req, res) => {
   try {
-    const result = await mainDB.query('SELECT user_id, username, email, phone, address, role FROM users ORDER BY user_id ASC');
+    const result = await mainDB.query(
+      "SELECT user_id, username, email, phone, address, role FROM users ORDER BY user_id ASC"
+    );
     res.json(result.rows);
   } catch (err) {
-    console.error('Get users error:', err);
+    console.error("Get users error:", err);
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
@@ -1371,14 +1705,14 @@ app.post("/api/admin/users", async (req, res) => {
 
   const insertUser = async () => {
     const result = await mainDB.query(
-      'INSERT INTO users (username, email, password, phone, address, role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id, username, email, phone, address, role',
+      "INSERT INTO users (username, email, password, phone, address, role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id, username, email, phone, address, role",
       [
         validation.username,
         validation.email,
         validation.password,
         validation.phone,
         validation.address,
-        validation.role
+        validation.role,
       ]
     );
     return result.rows[0];
@@ -1388,13 +1722,21 @@ app.post("/api/admin/users", async (req, res) => {
     const user = await insertUser();
     res.json(user);
   } catch (err) {
-    console.error('Create user error:', err);
+    console.error("Create user error:", err);
 
-    if (err.code === '23505' && err.constraint === 'users_email_key') {
-      return res.status(400).json({ error: formatValidationError('user', ACTIONS.create, "Email is already registered") });
+    if (err.code === "23505" && err.constraint === "users_email_key") {
+      return res
+        .status(400)
+        .json({
+          error: formatValidationError(
+            "user",
+            ACTIONS.create,
+            "Email is already registered"
+          ),
+        });
     }
 
-    if (err.code === '23505' && err.constraint === 'users_pkey') {
+    if (err.code === "23505" && err.constraint === "users_pkey") {
       try {
         await mainDB.query(
           "SELECT setval('users_user_id_seq', (SELECT COALESCE(MAX(user_id), 1) FROM users), true)"
@@ -1402,9 +1744,13 @@ app.post("/api/admin/users", async (req, res) => {
         const user = await insertUser();
         return res.json(user);
       } catch (seqErr) {
-        console.error('User sequence repair error:', seqErr);
+        console.error("User sequence repair error:", seqErr);
         return res.status(500).json({
-          error: formatValidationError('user', ACTIONS.create, "Database sequence is out of sync. Please contact an administrator.")
+          error: formatValidationError(
+            "user",
+            ACTIONS.create,
+            "Database sequence is out of sync. Please contact an administrator."
+          ),
         });
       }
     }
@@ -1417,7 +1763,11 @@ app.put("/api/admin/users/:id", async (req, res) => {
   const { id } = req.params;
   const numericId = parseInteger(id);
   if (!numericId) {
-    return res.status(400).json({ error: formatValidationError('user', ACTIONS.update, "Invalid user ID") });
+    return res
+      .status(400)
+      .json({
+        error: formatValidationError("user", ACTIONS.update, "Invalid user ID"),
+      });
   }
 
   const validation = validateUserPayload(req.body, ACTIONS.update);
@@ -1427,7 +1777,7 @@ app.put("/api/admin/users/:id", async (req, res) => {
 
   try {
     const result = await mainDB.query(
-      'UPDATE users SET username = $1, email = $2, password = $3, phone = $4, address = $5, role = $6 WHERE user_id = $7 RETURNING user_id, username, email, phone, address, role',
+      "UPDATE users SET username = $1, email = $2, password = $3, phone = $4, address = $5, role = $6 WHERE user_id = $7 RETURNING user_id, username, email, phone, address, role",
       [
         validation.username,
         validation.email,
@@ -1435,7 +1785,7 @@ app.put("/api/admin/users/:id", async (req, res) => {
         validation.phone,
         validation.address,
         validation.role,
-        numericId
+        numericId,
       ]
     );
     if (result.rows.length === 0) {
@@ -1443,9 +1793,17 @@ app.put("/api/admin/users/:id", async (req, res) => {
     }
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Update user error:', err);
-    if (err.code === '23505' && err.constraint === 'users_email_key') {
-      return res.status(400).json({ error: formatValidationError('user', ACTIONS.update, "Email is already registered") });
+    console.error("Update user error:", err);
+    if (err.code === "23505" && err.constraint === "users_email_key") {
+      return res
+        .status(400)
+        .json({
+          error: formatValidationError(
+            "user",
+            ACTIONS.update,
+            "Email is already registered"
+          ),
+        });
     }
     res.status(500).json({ error: "Failed to update user" });
   }
@@ -1455,93 +1813,107 @@ app.delete("/api/admin/users/:id", async (req, res) => {
   const { id } = req.params;
   const numericId = parseInteger(id);
   if (!numericId) {
-    return res.status(400).json({ error: formatValidationError('user', ACTIONS.delete, "Invalid user ID") });
+    return res
+      .status(400)
+      .json({
+        error: formatValidationError("user", ACTIONS.delete, "Invalid user ID"),
+      });
   }
   const { force } = req.query; // force=true for cascade delete
   const client = await mainDB.connect();
-  
+
   try {
-    await client.query('BEGIN');
-    
+    await client.query("BEGIN");
+
     // Check if user has any orders
     const ordersCheck = await client.query(
-      'SELECT order_id FROM orders WHERE user_id = $1',
+      "SELECT order_id FROM orders WHERE user_id = $1",
       [numericId]
     );
-    
+
     const orderCount = ordersCheck.rows.length;
-    
+
     // Option 1: Force delete with cascade
-    if (force === 'true' && orderCount > 0) {
+    if (force === "true" && orderCount > 0) {
       let deletedOrderItems = 0;
       let deletedPayments = 0;
-      
+
       // For each order, delete related records
       for (const order of ordersCheck.rows) {
         // Delete order items
         const orderItemsResult = await client.query(
-          'DELETE FROM order_items WHERE order_id = $1',
+          "DELETE FROM order_items WHERE order_id = $1",
           [order.order_id]
         );
         deletedOrderItems += orderItemsResult.rowCount;
-        
+
         // Delete payments
         const paymentsResult = await client.query(
-          'DELETE FROM payments WHERE order_id = $1',
+          "DELETE FROM payments WHERE order_id = $1",
           [order.order_id]
         );
         deletedPayments += paymentsResult.rowCount;
       }
-      
+
       // Delete all orders
-      await client.query('DELETE FROM orders WHERE user_id = $1', [numericId]);
-      
+      await client.query("DELETE FROM orders WHERE user_id = $1", [numericId]);
+
       // Delete cart items
-      await client.query('DELETE FROM cart_items WHERE user_id = $1', [numericId]);
-      
+      await client.query("DELETE FROM cart_items WHERE user_id = $1", [
+        numericId,
+      ]);
+
       // Delete the user
-      const result = await client.query('DELETE FROM users WHERE user_id = $1 RETURNING *', [numericId]);
-      
+      const result = await client.query(
+        "DELETE FROM users WHERE user_id = $1 RETURNING *",
+        [numericId]
+      );
+
       if (result.rows.length === 0) {
-        await client.query('ROLLBACK');
+        await client.query("ROLLBACK");
         return res.status(404).json({ error: "User not found" });
       }
-      
-      await client.query('COMMIT');
-      return res.json({ 
+
+      await client.query("COMMIT");
+      return res.json({
         message: "User and all related records deleted successfully",
         deletedOrders: orderCount,
         deletedOrderItems: deletedOrderItems,
-        deletedPayments: deletedPayments
+        deletedPayments: deletedPayments,
       });
     }
-    
+
     // Option 2: Safe delete (default)
     if (orderCount > 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ 
+      await client.query("ROLLBACK");
+      return res.status(400).json({
         error: "Cannot delete user with order history",
         suggestion: "Use ?force=true to delete user and all related orders",
-        orderCount: orderCount
+        orderCount: orderCount,
       });
     }
-    
+
     // Delete cart items first (if any)
-    await client.query('DELETE FROM cart_items WHERE user_id = $1', [numericId]);
-    
+    await client.query("DELETE FROM cart_items WHERE user_id = $1", [
+      numericId,
+    ]);
+
     // Delete the user
-    const result = await client.query('DELETE FROM users WHERE user_id = $1 RETURNING *', [numericId]);
-    
+    const result = await client.query(
+      "DELETE FROM users WHERE user_id = $1 RETURNING *",
+      [numericId]
+    );
+
     if (result.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await client.query("ROLLBACK");
       return res.status(404).json({ error: "User not found" });
     }
-    
-    await client.query('COMMIT');
+
+    await client.query("COMMIT");
     res.json({ message: "User deleted successfully" });
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Delete user error:', err);
+    await client.query("ROLLBACK");
+    console.error("Delete user error:", err);
     res.status(500).json({ error: "Failed to delete user: " + err.message });
   } finally {
     client.release();
@@ -1551,21 +1923,27 @@ app.delete("/api/admin/users/:id", async (req, res) => {
 // Check deletion constraints before deleting
 app.get("/api/admin/check-delete/:type/:id", async (req, res) => {
   const { type, id } = req.params;
-  
+
   try {
     let canDelete = true;
     let dependencies = [];
     let message = "";
-    
-    if (type === 'album') {
+
+    if (type === "album") {
       const [orders, carts] = await Promise.all([
-        mainDB.query('SELECT COUNT(*) as count FROM order_items WHERE album_id = $1', [id]),
-        mainDB.query('SELECT COUNT(*) as count FROM cart_items WHERE album_id = $1', [id])
+        mainDB.query(
+          "SELECT COUNT(*) as count FROM order_items WHERE album_id = $1",
+          [id]
+        ),
+        mainDB.query(
+          "SELECT COUNT(*) as count FROM cart_items WHERE album_id = $1",
+          [id]
+        ),
       ]);
-      
+
       const orderCount = parseInt(orders.rows[0].count);
       const cartCount = parseInt(carts.rows[0].count);
-      
+
       if (orderCount > 0) {
         canDelete = false;
         dependencies.push(`${orderCount} order(s)`);
@@ -1573,17 +1951,19 @@ app.get("/api/admin/check-delete/:type/:id", async (req, res) => {
       if (cartCount > 0) {
         dependencies.push(`${cartCount} cart item(s) (will be removed)`);
       }
-      
-      message = canDelete 
-        ? cartCount > 0 
+
+      message = canDelete
+        ? cartCount > 0
           ? "Album can be deleted. Cart items will be removed automatically."
           : "Album can be deleted safely."
         : `Cannot delete: Album has ${orderCount} associated order(s).`;
-        
-    } else if (type === 'artist') {
-      const albums = await mainDB.query('SELECT COUNT(*) as count FROM albums WHERE artist_id = $1', [id]);
+    } else if (type === "artist") {
+      const albums = await mainDB.query(
+        "SELECT COUNT(*) as count FROM albums WHERE artist_id = $1",
+        [id]
+      );
       const albumCount = parseInt(albums.rows[0].count);
-      
+
       if (albumCount > 0) {
         canDelete = false;
         dependencies.push(`${albumCount} album(s)`);
@@ -1591,29 +1971,38 @@ app.get("/api/admin/check-delete/:type/:id", async (req, res) => {
       } else {
         message = "Artist can be deleted safely.";
       }
-      
-    } else if (type === 'company') {
-      const artists = await mainDB.query('SELECT COUNT(*) as count FROM artists WHERE company_id = $1', [id]);
+    } else if (type === "company") {
+      const artists = await mainDB.query(
+        "SELECT COUNT(*) as count FROM artists WHERE company_id = $1",
+        [id]
+      );
       const artistCount = parseInt(artists.rows[0].count);
-      
+
       if (artistCount > 0) {
-        dependencies.push(`${artistCount} artist(s) (will be reassigned to fallback company)`);
+        dependencies.push(
+          `${artistCount} artist(s) (will be reassigned to fallback company)`
+        );
         message = `Company can be deleted. ${artistCount} artist(s) will be reassigned to fallback company (ID: 0).`;
       } else {
         message = "Company can be deleted safely.";
       }
       // Companies can always be deleted (artists will be reassigned)
       canDelete = true;
-      
-    } else if (type === 'user') {
+    } else if (type === "user") {
       const [orders, carts] = await Promise.all([
-        mainDB.query('SELECT COUNT(*) as count FROM orders WHERE user_id = $1', [id]),
-        mainDB.query('SELECT COUNT(*) as count FROM cart_items WHERE user_id = $1', [id])
+        mainDB.query(
+          "SELECT COUNT(*) as count FROM orders WHERE user_id = $1",
+          [id]
+        ),
+        mainDB.query(
+          "SELECT COUNT(*) as count FROM cart_items WHERE user_id = $1",
+          [id]
+        ),
       ]);
-      
+
       const orderCount = parseInt(orders.rows[0].count);
       const cartCount = parseInt(carts.rows[0].count);
-      
+
       if (orderCount > 0) {
         canDelete = false;
         dependencies.push(`${orderCount} order(s)`);
@@ -1621,17 +2010,17 @@ app.get("/api/admin/check-delete/:type/:id", async (req, res) => {
       if (cartCount > 0) {
         dependencies.push(`${cartCount} cart item(s) (will be removed)`);
       }
-      
-      message = canDelete 
-        ? cartCount > 0 
+
+      message = canDelete
+        ? cartCount > 0
           ? "User can be deleted. Cart items will be removed automatically."
           : "User can be deleted safely."
         : `Cannot delete: User has ${orderCount} order(s) in history.`;
     }
-    
+
     res.json({ canDelete, dependencies, message });
   } catch (err) {
-    console.error('Check delete error:', err);
+    console.error("Check delete error:", err);
     res.status(500).json({ error: "Failed to check deletion constraints" });
   }
 });
@@ -1645,11 +2034,11 @@ app.get("/api/admin/check-delete/:type/:id", async (req, res) => {
 // 📊 ROLL UP: Sales aggregated by Company → Artist → Album (hierarchical)
 app.get("/api/reports/rollup-sales", async (req, res) => {
   const { level } = req.query; // 'company', 'artist', or 'album'
-  
+
   try {
-    let query = '';
-    
-    if (level === 'company') {
+    let query = "";
+
+    if (level === "company") {
       // Roll up to company level (highest aggregation)
       query = `
         SELECT 
@@ -1666,7 +2055,7 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
         GROUP BY c.company_id, c.name
         ORDER BY total_revenue DESC
       `;
-    } else if (level === 'artist') {
+    } else if (level === "artist") {
       // Roll up to artist level
       query = `
         SELECT 
@@ -1704,11 +2093,11 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
         ORDER BY total_revenue DESC
       `;
     }
-    
+
     const result = await reportsDB.query(query, [ANALYTICS_STATUSES]);
     res.json(result.rows);
   } catch (err) {
-    console.error('Roll up error:', err);
+    console.error("Roll up error:", err);
     res.status(500).json({ error: "Failed to fetch rollup report" });
   }
 });
@@ -1716,11 +2105,11 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
 // 🔍 DRILL DOWN: Start from summary and drill into details
 app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
   const { type, id } = req.params; // type: 'company' or 'artist', id: entity id
-  
+
   try {
-    let query = '';
-    
-    if (type === 'company') {
+    let query = "";
+
+    if (type === "company") {
       // Drill down from company to see all artists
       query = `
         SELECT 
@@ -1738,7 +2127,7 @@ app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
         GROUP BY ar.artist_id, ar.name, ar.fandom_name
         ORDER BY total_revenue DESC NULLS LAST
       `;
-    } else if (type === 'artist') {
+    } else if (type === "artist") {
       // Drill down from artist to see all albums
       query = `
         SELECT 
@@ -1758,11 +2147,11 @@ app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
         ORDER BY total_revenue DESC
       `;
     }
-    
+
     const result = await reportsDB.query(query, [id, ANALYTICS_STATUSES]);
     res.json(result.rows);
   } catch (err) {
-    console.error('Drill down error:', err);
+    console.error("Drill down error:", err);
     res.status(500).json({ error: "Failed to fetch drilldown report" });
   }
 });
@@ -1770,42 +2159,42 @@ app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
 // 🎲 DICE: Multi-dimensional filtering (Date Range + Status + Price Range)
 app.get("/api/reports/dice", async (req, res) => {
   const { startDate, endDate, status, minPrice, maxPrice } = req.query;
-  
+
   try {
     let whereConditions = [`o.status = ANY($1)`];
     let params = [ANALYTICS_STATUSES];
     let paramIndex = 2;
-    
+
     if (startDate) {
       whereConditions.push(`o.order_date >= $${paramIndex}`);
       params.push(startDate);
       paramIndex++;
     }
-    
+
     if (endDate) {
       whereConditions.push(`o.order_date <= $${paramIndex}`);
       params.push(endDate);
       paramIndex++;
     }
-    
-    if (status && status !== 'ALL') {
+
+    if (status && status !== "ALL") {
       whereConditions.push(`o.status = $${paramIndex}`);
       params.push(status);
       paramIndex++;
     }
-    
+
     if (minPrice) {
       whereConditions.push(`oi.price >= $${paramIndex}`);
       params.push(minPrice);
       paramIndex++;
     }
-    
+
     if (maxPrice) {
       whereConditions.push(`oi.price <= $${paramIndex}`);
       params.push(maxPrice);
       paramIndex++;
     }
-    
+
     const query = `
       SELECT 
         o.order_id,
@@ -1825,15 +2214,15 @@ app.get("/api/reports/dice", async (req, res) => {
       JOIN albums al ON oi.album_id = al.album_id
       JOIN artists ar ON al.artist_id = ar.artist_id
       JOIN companies c ON ar.company_id = c.company_id
-      WHERE ${whereConditions.join(' AND ')}
+      WHERE ${whereConditions.join(" AND ")}
       ORDER BY o.order_date DESC
       LIMIT 100
     `;
-    
+
     const result = await reportsDB.query(query, params);
     res.json(result.rows);
   } catch (err) {
-    console.error('Dice error:', err);
+    console.error("Dice error:", err);
     res.status(500).json({ error: "Failed to fetch dice report" });
   }
 });
@@ -1842,9 +2231,9 @@ app.get("/api/reports/dice", async (req, res) => {
 app.get("/api/reports/slice/:dimension", async (req, res) => {
   const { dimension } = req.params;
   const { value } = req.query;
-  
+
   try {
-    if (dimension === 'time') {
+    if (dimension === "time") {
       const [daily, monthly, yearly] = await Promise.all([
         reportsDB.query(
           `
@@ -1903,20 +2292,20 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
             ORDER BY DATE_TRUNC('year', o.order_date) DESC
           `,
           [ANALYTICS_STATUSES]
-        )
+        ),
       ]);
-      
+
       return res.json({
         daily: daily.rows,
         monthly: monthly.rows,
-        yearly: yearly.rows
+        yearly: yearly.rows,
       });
     }
-    
-    let query = '';
+
+    let query = "";
     let params = [];
-    
-    if (dimension === 'status') {
+
+    if (dimension === "status") {
       query = `
         SELECT 
           o.status,
@@ -1924,12 +2313,12 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
           SUM(o.total_amount) as total_revenue,
           AVG(o.total_amount) as avg_order_value
         FROM orders o
-        ${value ? `WHERE o.status = $1` : ''}
+        ${value ? `WHERE o.status = $1` : ""}
         GROUP BY o.status
         ORDER BY total_orders DESC
       `;
       if (value) params.push(value);
-    } else if (dimension === 'company') {
+    } else if (dimension === "company") {
       query = `
         SELECT 
           c.name as company_name,
@@ -1943,12 +2332,12 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
         JOIN order_items oi ON al.album_id = oi.album_id
         JOIN orders o ON oi.order_id = o.order_id
         WHERE o.status = ANY($1)
-          ${value ? `AND c.company_id = $2` : ''}
+          ${value ? `AND c.company_id = $2` : ""}
         GROUP BY c.name, ar.name, al.title
         ORDER BY revenue DESC
       `;
       params = value ? [ANALYTICS_STATUSES, value] : [ANALYTICS_STATUSES];
-    } else if (dimension === 'artist') {
+    } else if (dimension === "artist") {
       query = `
         SELECT 
           ar.name as artist_name,
@@ -1961,7 +2350,7 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
         JOIN order_items oi ON al.album_id = oi.album_id
         JOIN orders o ON oi.order_id = o.order_id
         WHERE o.status = ANY($1)
-          ${value ? `AND ar.artist_id = $2` : ''}
+          ${value ? `AND ar.artist_id = $2` : ""}
         GROUP BY ar.name, al.title, al.release_date
         ORDER BY revenue DESC
       `;
@@ -1969,24 +2358,24 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
     } else {
       return res.status(400).json({ error: "Invalid slice dimension" });
     }
-    
+
     const result = await reportsDB.query(query, params);
     res.json(result.rows);
   } catch (err) {
-    console.error('Slice error:', err);
+    console.error("Slice error:", err);
     res.status(500).json({ error: "Failed to fetch slice report" });
   }
 });
 
 // 📈 Additional: Sales trends over time
 app.get("/api/reports/sales-trends", async (req, res) => {
-  const granularity = (req.query.granularity || 'daily').toLowerCase();
-  
+  const granularity = (req.query.granularity || "daily").toLowerCase();
+
   try {
-    let query = '';
+    let query = "";
     let params = [ANALYTICS_STATUSES];
-    
-    if (granularity === 'daily') {
+
+    if (granularity === "daily") {
       query = `
         SELECT 
           DATE_TRUNC('day', o.order_date)::date as date,
@@ -1999,7 +2388,7 @@ app.get("/api/reports/sales-trends", async (req, res) => {
         GROUP BY DATE_TRUNC('day', o.order_date)
         ORDER BY DATE_TRUNC('day', o.order_date)
       `;
-    } else if (granularity === 'monthly') {
+    } else if (granularity === "monthly") {
       query = `
         SELECT 
           TO_CHAR(DATE_TRUNC('month', o.order_date), 'YYYY Mon') as period,
@@ -2014,7 +2403,7 @@ app.get("/api/reports/sales-trends", async (req, res) => {
         GROUP BY DATE_TRUNC('month', o.order_date), period, quarter
         ORDER BY DATE_TRUNC('month', o.order_date)
       `;
-    } else if (granularity === 'quarterly') {
+    } else if (granularity === "quarterly") {
       query = `
         SELECT 
           TO_CHAR(DATE_TRUNC('quarter', o.order_date), '"Q"Q YYYY') as period,
@@ -2043,11 +2432,11 @@ app.get("/api/reports/sales-trends", async (req, res) => {
         ORDER BY DATE_TRUNC('year', o.order_date)
       `;
     }
-    
+
     const result = await reportsDB.query(query, params);
     res.json(result.rows);
   } catch (err) {
-    console.error('Sales trends error:', err);
+    console.error("Sales trends error:", err);
     res.status(500).json({ error: "Failed to fetch sales trends" });
   }
 });
@@ -2056,18 +2445,18 @@ app.get("/api/reports/sales-trends", async (req, res) => {
 app.get("/api/reports/dimensions", async (req, res) => {
   try {
     const [companies, artists, statuses] = await Promise.all([
-      mainDB.query('SELECT company_id, name FROM companies ORDER BY name'),
-      mainDB.query('SELECT artist_id, name FROM artists ORDER BY name'),
-      mainDB.query('SELECT DISTINCT status FROM orders ORDER BY status')
+      mainDB.query("SELECT company_id, name FROM companies ORDER BY name"),
+      mainDB.query("SELECT artist_id, name FROM artists ORDER BY name"),
+      mainDB.query("SELECT DISTINCT status FROM orders ORDER BY status"),
     ]);
-    
+
     res.json({
       companies: companies.rows,
       artists: artists.rows,
-      statuses: statuses.rows.map(r => r.status)
+      statuses: statuses.rows.map((r) => r.status),
     });
   } catch (err) {
-    console.error('Dimensions error:', err);
+    console.error("Dimensions error:", err);
     res.status(500).json({ error: "Failed to fetch dimensions" });
   }
 });
