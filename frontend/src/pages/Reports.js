@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import './Reports.css';
 
@@ -27,6 +27,10 @@ function Reports() {
     maxPrice: ''
   });
   const [diceLoading, setDiceLoading] = useState(false);
+  const dateLimits = useMemo(() => ({
+    min: '1980-01-01',
+    max: new Date().toISOString().split('T')[0]
+  }), []);
 
   useEffect(() => {
     fetchAllReports();
@@ -401,6 +405,8 @@ function Reports() {
               <label>Start Date</label>
               <input 
                 type="date" 
+                min={dateLimits.min}
+                max={dateLimits.max}
                 value={diceFilters.startDate}
                 onChange={(e) => handleDiceFilterChange('startDate', e.target.value)}
               />
@@ -409,6 +415,8 @@ function Reports() {
               <label>End Date</label>
               <input 
                 type="date" 
+                min={dateLimits.min}
+                max={dateLimits.max}
                 value={diceFilters.endDate}
                 onChange={(e) => handleDiceFilterChange('endDate', e.target.value)}
               />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import './Admin.css';
 
@@ -40,7 +40,35 @@ function Admin() {
   const [editingItem, setEditingItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({});
-
+  const albumImageInputRef = useRef(null);
+  const limits = useMemo(() => {
+    const now = new Date();
+    return {
+      dateMin: '1980-01-01',
+      dateMax: now.toISOString().split('T')[0],
+      yearMin: 1980,
+      yearMax: now.getFullYear(),
+      albumTitleMax: 200,
+      priceMin: 0.01,
+      priceMax: 10000,
+      stockMin: 0,
+      stockMax: 100000,
+      artistNameMax: 150,
+      fandomNameMax: 100,
+      companyNameMax: 150,
+      headquartersMax: 150,
+      ceoNameMax: 150,
+      userUsernameMax: 100,
+      userEmailMax: 150,
+      userPhoneMax: 20,
+      userAddressMax: 255,
+      userPasswordMax: 255
+    };
+  }, []);
+  const handleAlbumImageLoadError = () => {
+    alert('Unable to preview image. Please ensure the file exists inside /images/albums/.');
+    setFormData(prev => ({ ...prev, image_url: '' }));
+  };
   const isAdmin = isAuthenticated && user?.role === 'admin';
 
   useEffect(() => {
@@ -79,6 +107,9 @@ function Admin() {
     try {
       const response = await fetch('http://localhost:5000/api/admin/albums');
       if (response.ok) setAlbums(await response.json());
+      
+      const artistsResponse = await fetch('http://localhost:5000/api/admin/artists');
+      if (artistsResponse.ok) setArtists(await artistsResponse.json());
     } catch (error) {
       console.error('Error fetching albums:', error);
     } finally {
@@ -90,6 +121,9 @@ function Admin() {
     try {
       const response = await fetch('http://localhost:5000/api/admin/artists');
       if (response.ok) setArtists(await response.json());
+
+      const companiesResponse = await fetch('http://localhost:5000/api/admin/companies');
+      if (companiesResponse.ok) setCompanies(await companiesResponse.json());
     } catch (error) {
       console.error('Error fetching artists:', error);
     } finally {
@@ -122,14 +156,99 @@ function Admin() {
   // CREATE/UPDATE OPERATIONS
   const handleSave = async () => {
     try {
+      // Validation for artist-related inputs
+      if (activeTab === 'artists') {
+        // Validate required fields
+        if (!formData.name || !formData.name.trim()) {
+          alert('Artist name is required');
+          return;
+        }
+        
+        if (!formData.company_id || formData.company_id === '') {
+          alert('Please select a company');
+          return;
+        }
+        
+        const currentYear = new Date().getFullYear();
+        const debutYear = formData.debut_year;
+        
+        if (debutYear && (debutYear < 1980 || debutYear > currentYear)) {
+          alert(`Debut year must be between 1980 and ${currentYear}`);
+          return;
+        }
+      }
+      
+      if (activeTab === 'albums') {
+        const releaseDate = formData.release_date;
+        if (releaseDate) {
+          const date = new Date(releaseDate);
+          const today = new Date();
+          today.setHours(23, 59, 59, 999); // End of today
+          const minDate = new Date('1980-01-01');
+          
+          if (date > today) {
+            alert('Release date cannot be in the future');
+            return;
+          }
+          
+          if (date < minDate) {
+            alert('Release date must be on or after January 1, 1980');
+            return;
+          }
+        }
+        if (formData.image_url && !formData.image_url.startsWith('/images/albums/')) {
+          alert('Album image path must be inside /images/albums/');
+          return;
+        }
+        if (!formData.title || !formData.title.trim()) {
+          alert('Album title is required');
+          return;
+        }
+        if (!formData.artist_id) {
+          alert('Please select an artist');
+          return;
+        }
+        if (formData.price === undefined || formData.price === '') {
+          alert('Price is required');
+          return;
+        }
+        if (formData.stock_quantity === undefined || formData.stock_quantity === '') {
+          alert('Stock quantity is required');
+          return;
+        }
+      }
+      
       const isEditing = editingItem !== null;
       const url = getApiUrl(isEditing);
       const method = isEditing ? 'PUT' : 'POST';
 
+      // Prepare data with proper type conversions
+      const dataToSend = { ...formData };
+      
+      // Convert string IDs to integers for artists and albums
+      if (activeTab === 'artists' && dataToSend.company_id) {
+        dataToSend.company_id = parseInt(dataToSend.company_id);
+      }
+      if (activeTab === 'albums') {
+        if (dataToSend.artist_id) dataToSend.artist_id = parseInt(dataToSend.artist_id);
+        if (dataToSend.price !== undefined && dataToSend.price !== '') {
+          dataToSend.price = parseFloat(dataToSend.price);
+        }
+        if (dataToSend.stock_quantity !== undefined && dataToSend.stock_quantity !== '') {
+          dataToSend.stock_quantity = parseInt(dataToSend.stock_quantity);
+        }
+        if (!dataToSend.release_date) {
+          dataToSend.release_date = null;
+        }
+      }
+      if (activeTab === 'artists' && dataToSend.debut_year) {
+        dataToSend.debut_year = parseInt(dataToSend.debut_year);
+      }
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(dataToSend)
       });
 
       if (response.ok) {
@@ -177,6 +296,20 @@ function Admin() {
     const idField = getIdField();
     const id = item[idField];
 
+    // Get item name for display
+    const getItemName = () => {
+      switch(activeTab) {
+        case 'albums': return item.title || `album #${id}`;
+        case 'artists': return item.name || `artist #${id}`;
+        case 'companies': return item.name || `company #${id}`;
+        case 'users': return item.username || item.email || `user #${id}`;
+        default: return `item #${id}`;
+      }
+    };
+    
+    const itemName = getItemName();
+    const itemType = activeTab.slice(0, -1); // Remove 's' from end (albums -> album, artists -> artist)
+
     // Check what's blocking deletion first
     const checkResponse = await fetch(`http://localhost:5000/api/admin/check-delete/${activeTab}/${id}`);
     const checkData = await checkResponse.json();
@@ -198,7 +331,7 @@ function Admin() {
         const choice = prompt(message);
         if (choice === '1') deleteOption = 'setStockZero';
         else if (choice === '2') {
-          if (!window.confirm('⚠️ WARNING: This will permanently delete the album and ALL related order records. This cannot be undone! Are you absolutely sure?')) return;
+          if (!window.confirm(`⚠️ WARNING: This will permanently delete the album "${itemName}" and ALL related order records. This cannot be undone! Are you absolutely sure?`)) return;
           deleteOption = 'force';
         } else return;
       } else {
@@ -208,13 +341,13 @@ function Admin() {
         
         const choice = prompt(message);
         if (choice === '1') {
-          if (!window.confirm('⚠️ WARNING: This will permanently delete this item and ALL related records. This cannot be undone! Are you absolutely sure?')) return;
+          if (!window.confirm(`⚠️ WARNING: This will permanently delete the ${itemType} "${itemName}" and ALL related records. This cannot be undone! Are you absolutely sure?`)) return;
           deleteOption = 'force';
         } else return;
       }
     } else {
       // Can delete safely
-      if (!window.confirm(`✅ ${checkData.message}\n\nAre you sure you want to delete this item?`)) return;
+      if (!window.confirm(`Are you sure you want to delete ${itemType} "${itemName}"?`)) return;
     }
 
     try {
@@ -271,6 +404,38 @@ function Admin() {
     }
   };
 
+  const triggerAlbumImageUpload = () => {
+    if (albumImageInputRef.current) {
+      albumImageInputRef.current.click();
+    }
+  };
+
+  const handleAlbumImageUpload = (event) => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const sanitizedName = file.name.replace(/\s+/g, '-');
+    const imageUrl = `/images/albums/${sanitizedName}`;
+
+    const validateImagePath = async () => {
+      try {
+        const response = await fetch(imageUrl, { method: 'HEAD', cache: 'no-store' });
+        const contentType = response.headers.get('Content-Type') || '';
+        if (!response.ok || !contentType.toLowerCase().includes('image')) {
+          throw new Error('Image not found');
+        }
+        setFormData(prev => ({ ...prev, image_url: imageUrl }));
+      } catch (err) {
+        alert(`Selected file must already exist inside frontend/public${imageUrl}. Please move the image there first.`);
+      }
+    };
+
+    validateImagePath();
+
+    // reset input value to allow re-selecting same file
+    event.target.value = '';
+  };
+
   // MODAL HANDLERS
   const openCreateModal = () => {
     setEditingItem(null);
@@ -289,9 +454,9 @@ function Admin() {
       case 'albums':
         return { title: '', artist_id: '', price: '', release_date: '', stock_quantity: '', image_url: '' };
       case 'artists':
-        return { name: '', company_id: '', debut_date: '', country: '' };
+        return { name: '', company_id: '', debut_year: '', fandom_name: '' };
       case 'companies':
-        return { name: '', country: '', founded_year: '' };
+        return { name: '', headquarters: '', founded_year: '', ceo_name: '' };
       case 'users':
         return { username: '', email: '', password: '', phone: '', address: '', role: 'customer' };
       default:
@@ -522,8 +687,8 @@ function Admin() {
                   <th>ID</th>
                   <th>Name</th>
                   <th>Company</th>
-                  <th>Debut Date</th>
-                  <th>Country</th>
+                  <th>Debut Year</th>
+                  <th>Fandom Name</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -533,8 +698,8 @@ function Admin() {
                     <td>{artist.artist_id}</td>
                     <td>{artist.name}</td>
                     <td>{artist.company_name}</td>
-                    <td>{new Date(artist.debut_date).toLocaleDateString()}</td>
-                    <td>{artist.country}</td>
+                    <td>{artist.debut_year || '-'}</td>
+                    <td>{artist.fandom_name || '-'}</td>
                     <td>
                       <button className="btn-edit" onClick={() => openEditModal(artist)}>Edit</button>
                       <button className="btn-delete" onClick={() => handleDelete(artist)}>Delete</button>
@@ -561,8 +726,9 @@ function Admin() {
                 <tr>
                   <th>ID</th>
                   <th>Name</th>
-                  <th>Country</th>
+                  <th>Headquarters Location</th>
                   <th>Founded Year</th>
+                  <th>CEO/Founder</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -571,8 +737,9 @@ function Admin() {
                   <tr key={company.company_id}>
                     <td>{company.company_id}</td>
                     <td>{company.name}</td>
-                    <td>{company.country}</td>
-                    <td>{company.founded_year}</td>
+                    <td>{company.headquarters || '-'}</td>
+                    <td>{company.founded_year || '-'}</td>
+                    <td>{company.ceo_name || '-'}</td>
                     <td>
                       <button className="btn-edit" onClick={() => openEditModal(company)}>Edit</button>
                       <button className="btn-delete" onClick={() => handleDelete(company)}>Delete</button>
@@ -639,6 +806,7 @@ function Admin() {
                   <input
                     type="text"
                     placeholder="Title"
+                    maxLength={limits.albumTitleMax}
                     value={formData.title || ''}
                     onChange={(e) => setFormData({...formData, title: e.target.value})}
                   />
@@ -652,6 +820,8 @@ function Admin() {
                   <input
                     type="number"
                     step="0.01"
+                    min={limits.priceMin}
+                    max={limits.priceMax}
                     placeholder="Price"
                     value={formData.price || ''}
                     onChange={(e) => setFormData({...formData, price: e.target.value})}
@@ -659,21 +829,56 @@ function Admin() {
                   <input
                     type="date"
                     placeholder="Release Date"
+                    min={limits.dateMin}
+                    max={limits.dateMax}
                     value={formData.release_date ? formData.release_date.split('T')[0] : ''}
                     onChange={(e) => setFormData({...formData, release_date: e.target.value})}
                   />
                   <input
                     type="number"
+                    min={limits.stockMin}
+                    max={limits.stockMax}
+                    step="1"
                     placeholder="Stock Quantity"
                     value={formData.stock_quantity || ''}
                     onChange={(e) => setFormData({...formData, stock_quantity: e.target.value})}
                   />
-                  <input
-                    type="text"
-                    placeholder="Image URL"
-                    value={formData.image_url || ''}
-                    onChange={(e) => setFormData({...formData, image_url: e.target.value})}
-                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <button
+                      type="button"
+                      style={{ padding: '8px 12px', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                      onClick={triggerAlbumImageUpload}
+                    >
+                      {formData.image_url ? 'Change Image' : 'Upload Image'}
+                    </button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={albumImageInputRef}
+                      style={{ display: 'none' }}
+                      onChange={handleAlbumImageUpload}
+                    />
+                    {formData.image_url && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '12px', color: '#666' }}>Selected: {formData.image_url}</span>
+                        {formData.image_url.startsWith('/images/albums/') && (
+                          <img
+                            src={formData.image_url}
+                            alt="Album preview"
+                            style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px' }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        )}
+                        <button type="button" className="link-button" onClick={() => setFormData({...formData, image_url: ''})}>
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                    <p style={{ fontSize: '11px', color: '#999', fontStyle: 'italic' }}>
+                      Upload images stored in <code>/images/albums/</code>. The selected file path will be converted to
+                      that location; external paths are not allowed.
+                    </p>
+                  </div>
                 </>
               )}
               {activeTab === 'artists' && (
@@ -681,6 +886,7 @@ function Admin() {
                   <input
                     type="text"
                     placeholder="Name"
+                    maxLength={limits.artistNameMax}
                     value={formData.name || ''}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                   />
@@ -692,16 +898,19 @@ function Admin() {
                     {companies.map(c => <option key={c.company_id} value={c.company_id}>{c.name}</option>)}
                   </select>
                   <input
-                    type="date"
-                    placeholder="Debut Date"
-                    value={formData.debut_date ? formData.debut_date.split('T')[0] : ''}
-                    onChange={(e) => setFormData({...formData, debut_date: e.target.value})}
+                    type="number"
+                    placeholder="Debut Year"
+                    min={limits.yearMin}
+                    max={limits.yearMax}
+                    value={formData.debut_year || ''}
+                    onChange={(e) => setFormData({...formData, debut_year: e.target.value ? parseInt(e.target.value) : ''})}
                   />
                   <input
                     type="text"
-                    placeholder="Country"
-                    value={formData.country || ''}
-                    onChange={(e) => setFormData({...formData, country: e.target.value})}
+                    placeholder="Fandom Name"
+                    maxLength={limits.fandomNameMax}
+                    value={formData.fandom_name || ''}
+                    onChange={(e) => setFormData({...formData, fandom_name: e.target.value})}
                   />
                 </>
               )}
@@ -710,20 +919,31 @@ function Admin() {
                   <input
                     type="text"
                     placeholder="Name"
+                    maxLength={limits.companyNameMax}
                     value={formData.name || ''}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
                   />
                   <input
                     type="text"
-                    placeholder="Country"
-                    value={formData.country || ''}
-                    onChange={(e) => setFormData({...formData, country: e.target.value})}
+                    placeholder="Headquarters Location"
+                    maxLength={limits.headquartersMax}
+                    value={formData.headquarters || ''}
+                    onChange={(e) => setFormData({...formData, headquarters: e.target.value})}
                   />
                   <input
                     type="number"
                     placeholder="Founded Year"
+                    min={limits.yearMin}
+                    max={limits.yearMax}
                     value={formData.founded_year || ''}
                     onChange={(e) => setFormData({...formData, founded_year: e.target.value})}
+                  />
+                  <input
+                    type="text"
+                    placeholder="CEO/Founder Name"
+                    maxLength={limits.ceoNameMax}
+                    value={formData.ceo_name || ''}
+                    onChange={(e) => setFormData({...formData, ceo_name: e.target.value})}
                   />
                 </>
               )}
@@ -732,30 +952,35 @@ function Admin() {
                   <input
                     type="text"
                     placeholder="Username"
+                    maxLength={limits.userUsernameMax}
                     value={formData.username || ''}
                     onChange={(e) => setFormData({...formData, username: e.target.value})}
                   />
                   <input
                     type="email"
                     placeholder="Email"
+                    maxLength={limits.userEmailMax}
                     value={formData.email || ''}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                   />
                   <input
                     type="password"
                     placeholder="Password"
+                    maxLength={limits.userPasswordMax}
                     value={formData.password || ''}
                     onChange={(e) => setFormData({...formData, password: e.target.value})}
                   />
                   <input
                     type="text"
                     placeholder="Phone"
+                    maxLength={limits.userPhoneMax}
                     value={formData.phone || ''}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
                   />
                   <input
                     type="text"
                     placeholder="Address"
+                    maxLength={limits.userAddressMax}
                     value={formData.address || ''}
                     onChange={(e) => setFormData({...formData, address: e.target.value})}
                   />
