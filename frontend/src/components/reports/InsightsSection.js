@@ -1,6 +1,31 @@
 import React from 'react';
 
-const InsightsSection = ({ salesByCompany, salesByArtist, salesByAlbum, isAdmin, formatCurrency, totalRevenue, totalOrders }) => (
+const InsightsSection = ({ salesByCompany, salesByArtist, salesByAlbum, isAdmin, formatCurrency, totalRevenue, totalOrders }) => {
+  const bestAlbum = React.useMemo(() => {
+    if (!salesByAlbum?.length) return null;
+    const grouped = salesByAlbum.reduce((acc, album) => {
+      const baseTitle = album.album_title.split('-')[0]?.trim() || album.album_title;
+      if (!acc[baseTitle]) {
+        acc[baseTitle] = {
+          baseTitle,
+          artist_name: album.artist_name,
+          total_units_sold: 0,
+          total_revenue: 0,
+        };
+      }
+      acc[baseTitle].total_units_sold += parseFloat(album.total_units_sold || 0);
+      acc[baseTitle].total_revenue += parseFloat(album.total_revenue || 0);
+      return acc;
+    }, {});
+    const values = Object.values(grouped);
+    values.sort((a, b) => {
+      const metricA = isAdmin ? parseFloat(b.total_revenue) - parseFloat(a.total_revenue) : parseFloat(b.total_units_sold) - parseFloat(a.total_units_sold);
+      return metricA;
+    });
+    return values[0];
+  }, [salesByAlbum, isAdmin]);
+
+  return (
   <div className="report-section">
     <div className="section-header">
       <h2> Performance Insights</h2>
@@ -23,11 +48,14 @@ const InsightsSection = ({ salesByCompany, salesByArtist, salesByAlbum, isAdmin,
       </div>
       <div className="insight-card">
         <h4>Best Album</h4>
-        <p className="insight-value">{salesByAlbum[0]?.album_title || 'N/A'}</p>
+        <p className="insight-value">{bestAlbum?.baseTitle || 'N/A'}</p>
+        <p className="insight-subtitle">
+          {bestAlbum?.artist_name ? `by ${bestAlbum.artist_name}` : ' '}
+        </p>
         {isAdmin ? (
-          <p className="insight-subtitle">{formatCurrency(salesByAlbum[0]?.total_revenue || 0)}</p>
+          <p className="insight-subtitle">{formatCurrency(bestAlbum?.total_revenue || 0)}</p>
         ) : (
-          <p className="insight-subtitle">{salesByAlbum[0]?.total_units_sold || 0} units</p>
+          <p className="insight-subtitle">{bestAlbum?.total_units_sold || 0} units</p>
         )}
       </div>
       {isAdmin ? (
@@ -48,6 +76,8 @@ const InsightsSection = ({ salesByCompany, salesByArtist, salesByAlbum, isAdmin,
     </div>
   </div>
 );
+};
 
 export default InsightsSection;
+
 

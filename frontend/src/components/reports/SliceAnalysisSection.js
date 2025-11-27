@@ -71,7 +71,7 @@ const SliceGrid = ({ dimension, data, formatCurrency }) => {
               <h3>{title}</h3>
               <div className="status-stats">
                 <div className="stat-item">
-                  <span className="stat-label">Orders</span>
+                  <span className="stat-label">Sales</span>
                   <span className="stat-value">{item.total_orders}</span>
                 </div>
                 <div className="stat-item">

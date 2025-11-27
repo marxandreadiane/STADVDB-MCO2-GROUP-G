@@ -37,6 +37,11 @@ function Reports() {
   const [annualTrends, setAnnualTrends] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [diceOptions, setDiceOptions] = useState({
+    companies: [],
+    artists: [],
+    albums: []
+  });
 
   const [sliceDimension, setSliceDimension] = useState('company');
   const [sliceLoading, setSliceLoading] = useState(false);
@@ -46,7 +51,10 @@ function Reports() {
     startDate: '',
     endDate: '',
     minPrice: '',
-    maxPrice: ''
+    maxPrice: '',
+    companyId: '',
+    artistId: '',
+    albumKey: ''
   });
   const [diceLoading, setDiceLoading] = useState(false);
   const dateLimits = useMemo(() => ({
@@ -102,6 +110,18 @@ function Reports() {
     loadReports();
   }, [loadReports]);
 
+  useEffect(() => {
+    const loadDiceOptions = async () => {
+      try {
+        const data = await fetchJSON('/api/reports/dice/filters');
+        setDiceOptions(data);
+      } catch (err) {
+        console.error('Dice options load error:', err);
+      }
+    };
+    loadDiceOptions();
+  }, []);
+
   const fetchSliceDimension = useCallback(async (dimension) => {
     if (dimension === 'time') return;
     setSliceLoading(true);
@@ -130,6 +150,9 @@ function Reports() {
     if (diceFilters.endDate) params.append('endDate', diceFilters.endDate);
     if (diceFilters.minPrice) params.append('minPrice', diceFilters.minPrice);
     if (diceFilters.maxPrice) params.append('maxPrice', diceFilters.maxPrice);
+    if (diceFilters.companyId) params.append('companyId', diceFilters.companyId);
+    if (diceFilters.artistId) params.append('artistId', diceFilters.artistId);
+    if (diceFilters.albumKey) params.append('albumKey', diceFilters.albumKey);
     const query = params.toString();
     return `${API_BASE_URL}/api/reports/dice${query ? `?${query}` : ''}`;
   }, [diceFilters]);
@@ -170,6 +193,42 @@ function Reports() {
           const numeric = Math.min(9999, Math.max(0.01, parseFloat(value)));
           next[field] = Number.isNaN(numeric) ? '' : numeric.toFixed(2);
         }
+        return next;
+      }
+      if (field === 'companyId') {
+        next.companyId = value;
+        if (!value) {
+          next.artistId = '';
+          next.albumKey = '';
+        } else if (
+          next.artistId &&
+          !diceOptions.artists.some(
+            (artist) =>
+              String(artist.artist_id) === next.artistId &&
+              String(artist.company_id) === value
+          )
+        ) {
+          next.artistId = '';
+          next.albumKey = '';
+        }
+        return next;
+      }
+      if (field === 'artistId') {
+        next.artistId = value;
+        if (value) {
+          const selectedArtist = diceOptions.artists.find(
+            (artist) => String(artist.artist_id) === value
+          );
+          if (selectedArtist) {
+            next.companyId = String(selectedArtist.company_id);
+          }
+        } else {
+          next.albumKey = '';
+        }
+        return next;
+      }
+      if (field === 'albumKey') {
+        next.albumKey = value;
         return next;
       }
       if (field === 'startDate') {
@@ -215,7 +274,11 @@ function Reports() {
 
   const formatCurrency = (amount) => {
     const num = parseFloat(amount || 0);
-    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const formatted = num.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    return `₱ ${formatted}`;
   };
 
   const formatDate = (dateString) => {
@@ -332,6 +395,9 @@ function Reports() {
           recentOrders={recentOrders}
           formatCurrency={formatCurrency}
           formatDate={formatDate}
+          companyOptions={diceOptions.companies}
+          artistOptions={diceOptions.artists}
+          albumOptions={diceOptions.albums}
         />
       )}
 

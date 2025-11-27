@@ -4,9 +4,7 @@ const PAGE_SIZE = 10;
 
 const CompanyRollupSection = ({ data, isAdmin, getBarWidth, formatCurrency }) => {
   const [page, setPage] = useState(0);
-  const maxValue = isAdmin
-    ? Math.max(...data.map(item => parseFloat(item.total_revenue || 0)), 1)
-    : Math.max(...data.map(item => parseFloat(item.total_orders || 0)), 1);
+  const maxValue = Math.max(...data.map(item => parseFloat(item.total_units_sold || 0)), 1);
   const totalPages = Math.ceil(data.length / PAGE_SIZE);
   const showPagination = totalPages > 1;
 
@@ -28,18 +26,22 @@ const CompanyRollupSection = ({ data, isAdmin, getBarWidth, formatCurrency }) =>
       </div>
       <div className="chart-container fixed-height">
         {visibleData.map((company, idx) => {
-          const barValue = isAdmin ? company.total_revenue : company.total_orders;
+          const barValue = isAdmin ? company.total_revenue : company.total_units_sold;
           return (
             <div key={idx} className="bar-item">
               <div className="bar-label">
                 <span className="label-text">{company.company_name}</span>
                 <span className="label-value">
-                  {isAdmin ? formatCurrency(company.total_revenue) : `${company.total_orders} orders`}
+                  {isAdmin ? formatCurrency(company.total_revenue) : `${company.total_units_sold} albums`}
                 </span>
               </div>
               <div className="bar-track">
                 <div className="bar-fill purple-bar" style={{ width: getBarWidth(barValue, maxValue) }}>
-                  <span className="bar-text">{company.total_units_sold} albums sold</span>
+                  <span className="bar-text">
+                    {isAdmin
+                      ? `${company.total_units_sold} albums sold`
+                      : formatCurrency(company.total_revenue)}
+                  </span>
                 </div>
               </div>
             </div>

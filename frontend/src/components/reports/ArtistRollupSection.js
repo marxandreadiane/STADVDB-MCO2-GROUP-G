@@ -15,9 +15,7 @@ const ArtistRollupSection = ({ data, isAdmin, getBarWidth, formatCurrency }) => 
     return copy;
   }, [data, isAdmin]);
 
-  const maxValue = isAdmin
-    ? Math.max(...sortedData.map(item => parseFloat(item.total_revenue || 0)), 1)
-    : Math.max(...sortedData.map(item => parseFloat(item.total_units_sold || 0)), 1);
+  const maxValue = Math.max(...sortedData.map(item => parseFloat(item.total_units_sold || 0)), 1);
 
   const totalPages = Math.ceil(sortedData.length / PAGE_SIZE);
   const showPagination = totalPages > 1;
@@ -53,7 +51,9 @@ const ArtistRollupSection = ({ data, isAdmin, getBarWidth, formatCurrency }) => 
               </div>
               <div className="bar-track">
                 <div className="bar-fill blue-bar" style={{ width: getBarWidth(barValue, maxValue) }}>
-                  <span className="bar-text">{artist.total_orders} orders</span>
+                  <span className="bar-text">
+                    {isAdmin ? `${artist.total_units_sold} albums sold` : formatCurrency(artist.total_revenue)}
+                  </span>
                 </div>
               </div>
             </div>

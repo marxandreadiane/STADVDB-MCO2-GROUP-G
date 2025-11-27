@@ -2182,9 +2182,9 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
       query = `
         SELECT 
           c.name as company_name,
-          COUNT(DISTINCT o.order_id) as total_orders,
-          SUM(oi.quantity) as total_units_sold,
-          SUM(oi.quantity * oi.price) as total_revenue
+          COALESCE(SUM(oi.quantity), 0) as total_orders,
+          COALESCE(SUM(oi.quantity), 0) as total_units_sold,
+          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
         FROM companies c
         JOIN artists ar ON c.company_id = ar.company_id
         JOIN albums al ON ar.artist_id = al.artist_id
@@ -2200,9 +2200,9 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
         SELECT 
           c.name as company_name,
           ar.name as artist_name,
-          COUNT(DISTINCT o.order_id) as total_orders,
-          SUM(oi.quantity) as total_units_sold,
-          SUM(oi.quantity * oi.price) as total_revenue
+          COALESCE(SUM(oi.quantity), 0) as total_orders,
+          COALESCE(SUM(oi.quantity), 0) as total_units_sold,
+          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
         FROM companies c
         JOIN artists ar ON c.company_id = ar.company_id
         JOIN albums al ON ar.artist_id = al.artist_id
@@ -2219,9 +2219,9 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
           c.name as company_name,
           ar.name as artist_name,
           al.title as album_title,
-          COUNT(DISTINCT o.order_id) as total_orders,
-          SUM(oi.quantity) as total_units_sold,
-          SUM(oi.quantity * oi.price) as total_revenue
+          COALESCE(SUM(oi.quantity), 0) as total_orders,
+          COALESCE(SUM(oi.quantity), 0) as total_units_sold,
+          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
         FROM companies c
         JOIN artists ar ON c.company_id = ar.company_id
         JOIN albums al ON ar.artist_id = al.artist_id
@@ -2297,7 +2297,16 @@ app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
 
 // 🎲 DICE: Multi-dimensional filtering (Date Range + Status + Price Range)
 app.get("/api/reports/dice", async (req, res) => {
-  const { startDate, endDate, status, minPrice, maxPrice } = req.query;
+  const {
+    startDate,
+    endDate,
+    status,
+    minPrice,
+    maxPrice,
+    companyId,
+    artistId,
+    albumKey,
+  } = req.query;
 
   try {
     let whereConditions = [`o.status = ANY($1)`];
@@ -2320,6 +2329,37 @@ app.get("/api/reports/dice", async (req, res) => {
       whereConditions.push(`o.status = $${paramIndex}`);
       params.push(status);
       paramIndex++;
+    }
+
+    const companyIdInt = parseInteger(companyId);
+    if (companyIdInt) {
+      whereConditions.push(`ar.company_id = $${paramIndex}`);
+      params.push(companyIdInt);
+      paramIndex++;
+    }
+
+    const artistIdInt = parseInteger(artistId);
+    if (artistIdInt) {
+      whereConditions.push(`ar.artist_id = $${paramIndex}`);
+      params.push(artistIdInt);
+      paramIndex++;
+    }
+
+    if (albumKey) {
+      const [albumArtistPart, normalizedTitlePart] = albumKey.split("::");
+      const parsedArtist = parseInteger(albumArtistPart);
+      if (parsedArtist && normalizedTitlePart) {
+        if (!artistIdInt) {
+          whereConditions.push(`ar.artist_id = $${paramIndex}`);
+          params.push(parsedArtist);
+          paramIndex++;
+        }
+        whereConditions.push(
+          `LOWER(TRIM(split_part(al.title, '-', 1))) = $${paramIndex}`
+        );
+        params.push(normalizedTitlePart);
+        paramIndex++;
+      }
     }
 
     if (minPrice) {
@@ -2363,6 +2403,41 @@ app.get("/api/reports/dice", async (req, res) => {
   } catch (err) {
     console.error("Dice error:", err);
     res.status(500).json({ error: "Failed to fetch dice report" });
+  }
+});
+
+app.get("/api/reports/dice/filters", async (_req, res) => {
+  try {
+    const [companies, artists, albums] = await Promise.all([
+      reportsDB.query(
+        "SELECT company_id, name FROM companies ORDER BY name ASC"
+      ),
+      reportsDB.query(
+        "SELECT artist_id, company_id, name FROM artists ORDER BY name ASC"
+      ),
+      reportsDB.query(
+        `
+          SELECT DISTINCT ON (ar.artist_id, LOWER(TRIM(split_part(al.title, '-', 1))))
+            CONCAT(ar.artist_id, '::', LOWER(TRIM(split_part(al.title, '-', 1)))) AS album_key,
+            TRIM(split_part(al.title, '-', 1)) AS base_title,
+            ar.artist_id,
+            ar.name AS artist_name,
+            ar.company_id
+          FROM albums al
+          JOIN artists ar ON al.artist_id = ar.artist_id
+          ORDER BY ar.artist_id, LOWER(TRIM(split_part(al.title, '-', 1))), al.album_id ASC
+        `
+      ),
+    ]);
+
+    res.json({
+      companies: companies.rows,
+      artists: artists.rows,
+      albums: albums.rows,
+    });
+  } catch (err) {
+    console.error("Dice filters error:", err);
+    res.status(500).json({ error: "Failed to load dice filters" });
   }
 });
 
@@ -2472,11 +2547,14 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
     } else if (dimension === "company") {
       query = `
         SELECT 
+          c.company_id,
           c.name as company_name,
-          ar.name as artist_name,
-          al.title as album_title,
-          SUM(oi.quantity) as units_sold,
-          SUM(oi.quantity * oi.price) as revenue
+          COALESCE(SUM(oi.quantity), 0) as total_orders,
+          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue,
+          CASE 
+            WHEN COALESCE(SUM(oi.quantity), 0) = 0 THEN 0
+            ELSE SUM(oi.quantity * oi.price) / NULLIF(SUM(oi.quantity), 0)
+          END as avg_order_value
         FROM companies c
         JOIN artists ar ON c.company_id = ar.company_id
         JOIN albums al ON ar.artist_id = al.artist_id
@@ -2484,26 +2562,29 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
         JOIN orders o ON oi.order_id = o.order_id
         WHERE o.status = ANY($1)
           ${value ? `AND c.company_id = $2` : ""}
-        GROUP BY c.name, ar.name, al.title
-        ORDER BY revenue DESC
+        GROUP BY c.company_id, c.name
+        ORDER BY total_revenue DESC
       `;
       params = value ? [ANALYTICS_STATUSES, value] : [ANALYTICS_STATUSES];
     } else if (dimension === "artist") {
       query = `
         SELECT 
+          ar.artist_id,
           ar.name as artist_name,
-          al.title as album_title,
-          al.release_date,
-          SUM(oi.quantity) as units_sold,
-          SUM(oi.quantity * oi.price) as revenue
+          COALESCE(SUM(oi.quantity), 0) as total_orders,
+          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue,
+          CASE 
+            WHEN COALESCE(SUM(oi.quantity), 0) = 0 THEN 0
+            ELSE SUM(oi.quantity * oi.price) / NULLIF(SUM(oi.quantity), 0)
+          END as avg_order_value
         FROM artists ar
         JOIN albums al ON ar.artist_id = al.artist_id
         JOIN order_items oi ON al.album_id = oi.album_id
         JOIN orders o ON oi.order_id = o.order_id
         WHERE o.status = ANY($1)
           ${value ? `AND ar.artist_id = $2` : ""}
-        GROUP BY ar.name, al.title, al.release_date
-        ORDER BY revenue DESC
+        GROUP BY ar.artist_id, ar.name
+        ORDER BY total_revenue DESC
       `;
       params = value ? [ANALYTICS_STATUSES, value] : [ANALYTICS_STATUSES];
     } else {
