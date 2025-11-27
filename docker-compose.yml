@@ -61,6 +61,19 @@ services:
       - app-network
     restart: unless-stopped
 
+  olap_replicator:
+    build: ./backend
+    container_name: olap_replicator
+    command: node olap-replicator.js
+    env_file:
+      - ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
