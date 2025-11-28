@@ -145,7 +145,6 @@ function Albums() {
     updateUserInfo(userData);
     setShowAuthModal(false);
     
-    // Add the pending album after successful auth
     if (pendingAlbum) {
       proceedAddToCart(pendingAlbum);
       setPendingAlbum(null);
@@ -162,7 +161,7 @@ function Albums() {
     const newQty = currentQty + change;
     
     if (newQty <= 0) {
-      updateQuantity(album.album_id, 0); // This will remove it from cart
+      updateQuantity(album.album_id, 0); 
     } else {
       updateQuantity(album.album_id, newQty);
     }
@@ -191,19 +190,16 @@ function Albums() {
     const maxVisible = 5; // Maximum number of page buttons to show
     
     if (totalPages <= maxVisible) {
-      // Show all pages if total is less than max
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
       }
     } else {
-      // Always show first page
       pages.push(1);
       
       if (currentPage > 3) {
         pages.push('...');
       }
       
-      // Show pages around current page
       for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
         pages.push(i);
       }
@@ -211,8 +207,7 @@ function Albums() {
       if (currentPage < totalPages - 2) {
         pages.push('...');
       }
-      
-      // Always show last page
+
       pages.push(totalPages);
     }
     
@@ -366,7 +361,6 @@ function Albums() {
         })}
       </div>
 
-      {/* Pagination - Show if more than 1 page OR for testing show always */}
       {filteredAlbums.length > 0 && (
         <div className="pagination">
           <button 

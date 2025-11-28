@@ -216,7 +216,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🧩 Create DB connections (PostgreSQL)
+// Create DB connections (PostgreSQL)
 const mainDB = new Pool({
   host: process.env.DB_MAIN_HOST,
   port: process.env.DB_MAIN_PORT || 5432,
@@ -386,12 +386,11 @@ const syncReportsDatabase = async () => {
   }
 };
 
-// ✅ Root check
 app.get("/", (req, res) => {
   res.send("KPop Store API is running 🚀");
 });
 
-// 🔐 Authentication endpoints
+// Authentication endpoints
 
 // Sign up endpoint
 app.post("/api/auth/signup", async (req, res) => {
@@ -458,7 +457,7 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// 💿 Get all albums (transactional DB)
+// Get all albums (transactional DB)
 app.get("/api/albums", async (req, res) => {
   try {
     const result = await mainDB.query(`
@@ -481,7 +480,7 @@ app.get("/api/albums", async (req, res) => {
   }
 });
 
-// 📦 ORDERS ENDPOINTS
+// ORDERS ENDPOINTS
 
 // Get all orders (Admin)
 app.get("/api/admin/orders", async (req, res) => {
@@ -510,7 +509,7 @@ app.get("/api/admin/orders", async (req, res) => {
 });
 
 // Update order status (Admin)
-// ⚡ STOCK MANAGEMENT: When admin confirms order (PAID/SHIPPED), stock is decremented
+// STOCK MANAGEMENT: When admin confirms order (PAID/SHIPPED), stock is decremented
 app.put("/api/admin/orders/:orderId/status", async (req, res) => {
   const { orderId } = req.params;
   const { status } = req.body;
@@ -545,7 +544,7 @@ app.put("/api/admin/orders/:orderId/status", async (req, res) => {
 
     const currentStatus = currentOrder.rows[0].status;
 
-    // ⚡ If changing from PENDING to PAID or SHIPPED, decrement stock
+    // If changing from PENDING to PAID or SHIPPED, decrement stock
     if (
       currentStatus === "PENDING" &&
       (status === "PAID" || status === "SHIPPED")
@@ -583,7 +582,7 @@ app.put("/api/admin/orders/:orderId/status", async (req, res) => {
       }
     }
 
-    // ⚡ If changing to CANCELLED and was previously confirmed (PAID/SHIPPED), restore stock
+    // If changing to CANCELLED and was previously confirmed (PAID/SHIPPED), restore stock
     if (
       (currentStatus === "PAID" || currentStatus === "SHIPPED") &&
       status === "CANCELLED"
@@ -698,7 +697,7 @@ app.get("/api/orders/user/:userId", async (req, res) => {
   }
 });
 
-// �🛒 CART ENDPOINTS
+// CART ENDPOINTS
 
 // Get user's cart items
 app.get("/api/cart/:userId", async (req, res) => {
@@ -881,7 +880,7 @@ app.delete("/api/cart/:userId", async (req, res) => {
   }
 });
 
-// 🛒 Create new order with complete checkout
+// Create new order with complete checkout
 app.post("/api/orders", async (req, res) => {
   const { user, items, payment, total_amount } = req.body;
 
@@ -899,13 +898,13 @@ app.post("/api/orders", async (req, res) => {
 
     if (userCheck.rows.length > 0) {
       userId = userCheck.rows[0].user_id;
-      // Update user info (allow users to update their details at checkout)
+      // Update user info 
       await client.query(
         "UPDATE users SET username = $1, phone = $2, address = $3 WHERE user_id = $4",
         [user.username, user.phone, user.address, userId]
       );
     } else {
-      // Create new user (password is optional for guest checkout)
+      // Create new user 
       const newUser = await client.query(
         "INSERT INTO users (username, email, phone, address, password) VALUES ($1, $2, $3, $4, $5) RETURNING user_id",
         [
@@ -927,7 +926,7 @@ app.post("/api/orders", async (req, res) => {
     const orderId = orderResult.rows[0].order_id;
 
     // 3. Create order items (stock will be decremented when admin confirms)
-    // ⚡ STOCK MANAGEMENT: Stock is NOT decremented at order placement
+    // STOCK MANAGEMENT: Stock is NOT decremented at order placement
     // - Stock will be decremented when admin confirms the order (changes status to PAID/SHIPPED)
     // - This prevents stock from being locked for unconfirmed/pending orders
     // - Admin has control over when inventory is actually committed
@@ -1803,7 +1802,7 @@ app.delete("/api/admin/companies/:id", async (req, res) => {
       });
     }
 
-    // Option 2: Safe delete (default) - Set artists' company_id to 0 (fallback company)
+    // Safe delete 
     if (artistCount > 0) {
       // Update all artists to have company_id = 0 (fallback company)
       await client.query(
@@ -2039,7 +2038,7 @@ app.delete("/api/admin/users/:id", async (req, res) => {
       });
     }
 
-    // Option 2: Safe delete (default)
+    // Safe delete
     if (orderCount > 0) {
       await client.query("ROLLBACK");
       return res.status(400).json({
@@ -2187,7 +2186,7 @@ app.get("/api/admin/check-delete/:type/:id", async (req, res) => {
 // ========== OLAP REPORTS ENDPOINTS ==========
 // ========================================
 
-// 📊 ROLL UP: Sales aggregated by Company → Artist → Album (hierarchical)
+// ROLL UP: Sales aggregated by Company → Artist → Album (hierarchical)
 // Uses denormalized tables: company_sales_report, album_sales_report, sales_fact
 app.get("/api/reports/rollup-sales", async (req, res) => {
   const { level } = req.query; // 'company', 'artist', or 'album'
@@ -2245,7 +2244,7 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
   }
 });
 
-// 🔍 DRILL DOWN: Start from summary and drill into details
+// DRILL DOWN: Start from summary and drill into details
 // Uses denormalized sales_fact table
 app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
   const { type, id } = req.params; // type: 'company' or 'artist', id: entity id
@@ -2292,7 +2291,7 @@ app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
   }
 });
 
-// 🎲 DICE: Multi-dimensional filtering (Date Range + Status + Price Range)
+// DICE: Multi-dimensional filtering (Date Range + Status + Price Range)
 // Uses denormalized sales_fact table
 app.get("/api/reports/dice", async (req, res) => {
   const {
@@ -2445,7 +2444,7 @@ app.post("/api/reports/refresh", async (_req, res) => {
   }
 });
 
-// 🔪 SLICE: Single dimension filtering (e.g., sales for specific time period)
+// SLICE: Single dimension filtering (e.g., sales for specific time period)
 app.get("/api/reports/slice/:dimension", async (req, res) => {
   const { dimension } = req.params;
   const { value } = req.query;
@@ -2593,7 +2592,7 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
   }
 });
 
-// 📈 Additional: Sales trends over time
+// Additional: Sales trends over time
 // Uses denormalized sales_fact table and monthly_sales_report
 app.get("/api/reports/sales-trends", async (req, res) => {
   const granularity = (req.query.granularity || "daily").toLowerCase();
@@ -2663,7 +2662,7 @@ app.get("/api/reports/sales-trends", async (req, res) => {
   }
 });
 
-// 📊 Get dimension values for filters
+// Get dimension values for filters
 app.get("/api/reports/dimensions", async (req, res) => {
   try {
     const [companies, artists, statuses] = await Promise.all([
@@ -2684,4 +2683,4 @@ app.get("/api/reports/dimensions", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

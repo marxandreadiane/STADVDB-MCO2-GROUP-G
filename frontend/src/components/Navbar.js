@@ -89,7 +89,7 @@ function Navbar({ currentPage, setCurrentPage }) {
   return (
     <nav className="navbar">
       <div className="navbar-brand" onClick={() => navigateTo('home')} style={{cursor: 'pointer'}}>
-        <h1>name</h1>
+        <h1>Hallyu Mart</h1>
       </div>
       
       {/* CENTER NAVIGATION MENU */}

@@ -5,7 +5,6 @@ import './Home.css';
 function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
   
-  // Carousel images - reusing album images (try .webp first, fallback to .jpg)
   const slides = [
     { id: 1, image: '/images/albums/1.webp', alt: 'Album 1' },
     { id: 2, image: '/images/albums/2.webp', alt: 'Album 2' },
@@ -14,7 +13,6 @@ function Home() {
     { id: 5, image: '/images/albums/5.webp', alt: 'Album 5' },
   ];
 
-  // Auto-advance carousel every 4 seconds
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
