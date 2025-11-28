@@ -2,7 +2,11 @@
 
 Full-stack K-Pop album store with authentication, shopping cart, order management, admin dashboard, and OLAP analytics. Built with React, Node.js, Express, and PostgreSQL (Supabase).
 
-Link to recorded DEMO:
+To view the video demo, please click the link below.
+
+Link to recorded DEMO: https://youtu.be/Wa5sA6noY4U
+Link to recorded DEMO: https://youtu.be/Wa5sA6noY4U
+Link to recorded DEMO: https://youtu.be/Wa5sA6noY4U
 
 ## Table of Contents
 
