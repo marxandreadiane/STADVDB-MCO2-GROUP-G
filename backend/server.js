@@ -922,7 +922,7 @@ app.post("/api/orders", async (req, res) => {
     // 2. Create order
     const orderResult = await client.query(
       "INSERT INTO orders (user_id, total_amount, status, shipping_address, phone) VALUES ($1, $2, $3, $4, $5) RETURNING order_id",
-      [userId, total_amount, "PENDING", user.address, user.phone]
+      [userId, total_amount, "PAID", user.address, user.phone]
     );
     const orderId = orderResult.rows[0].order_id;
 
@@ -932,21 +932,35 @@ app.post("/api/orders", async (req, res) => {
     // - This prevents stock from being locked for unconfirmed/pending orders
     // - Admin has control over when inventory is actually committed
     for (const item of items) {
-      // Validate album exists
-      const albumCheck = await client.query(
-        "SELECT album_id FROM albums WHERE album_id = $1",
-        [item.album_id]
-      );
+          // ⚡ 1. CHECK STOCK FIRST
+          const stockCheck = await client.query(
+            "SELECT stock_quantity FROM albums WHERE album_id = $1",
+            [item.album_id]
+          );
 
-      if (albumCheck.rows.length === 0) {
-        throw new Error(`Album ${item.album_id} not found`);
-      }
+          if (stockCheck.rows.length === 0) {
+            throw new Error(`Album ${item.album_id} not found`);
+          }
 
-      // Insert order item (no stock decrement yet)
-      await client.query(
-        "INSERT INTO order_items (order_id, album_id, quantity, price) VALUES ($1, $2, $3, $4)",
-        [orderId, item.album_id, item.quantity, item.price]
-      );
+          const availableStock = stockCheck.rows[0].stock_quantity;
+          if (availableStock < item.quantity) {
+            // The error that JMeter will catch when stock hits 0
+            throw new Error(
+              `Insufficient stock. Only ${availableStock} items available.`
+            );
+          }
+
+          // ⚡ 2. DECREMENT STOCK IMMEDIATELY (The Atomic Update)
+          await client.query(
+            "UPDATE albums SET stock_quantity = stock_quantity - $1 WHERE album_id = $2",
+            [item.quantity, item.album_id]
+          );
+
+          // 3. Insert order item
+          await client.query(
+            "INSERT INTO order_items (order_id, album_id, quantity, price) VALUES ($1, $2, $3, $4)",
+            [orderId, item.album_id, item.quantity, item.price]
+          );
     }
 
     // 4. Create payment record

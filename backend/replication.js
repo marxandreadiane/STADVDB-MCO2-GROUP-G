@@ -117,7 +117,7 @@ async function syncTable(table) {
     }
 
     // Clear local table
-    await localDb.query(`DELETE FROM ${table}`);
+    await localDb.query(`TRUNCATE TABLE ${table} CASCADE`);
 
     // Prepare bulk insert
     const columns = Object.keys(processedData[0]);
