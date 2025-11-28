@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import AuthModal from '../components/AuthModal';
+import { getAlbumImageUrl, handleImageError } from '../utils/imageUtils';
 import './Cart.css';
 
 function Cart({ onCheckout }) {
@@ -27,10 +28,9 @@ function Cart({ onCheckout }) {
     return (
       <div className="cart">
         <div className="cart-header">
-          <h1>🛒 Shopping Cart</h1>
+          <h1>Shopping Cart</h1>
         </div>
         <div className="empty-cart">
-          <span className="empty-icon">🛍️</span>
           <h2>Your cart is empty</h2>
           <p>Add some albums to get started!</p>
         </div>
@@ -41,7 +41,7 @@ function Cart({ onCheckout }) {
   return (
     <div className="cart">
       <div className="cart-header">
-        <h1>🛒 Shopping Cart</h1>
+        <h1>Shopping Cart</h1>
         <p>{cartItems.length} {cartItems.length === 1 ? 'item' : 'items'} in your cart</p>
       </div>
 
@@ -51,9 +51,9 @@ function Cart({ onCheckout }) {
             <div key={item.album_id} className="cart-item">
               <div className="cart-item-image">
                 <img 
-                  src={item.image_url || `/images/albums/${item.album_id}.jpg`}
+                  src={getAlbumImageUrl(item.image_url, item.album_id)}
                   alt={item.album_name}
-                  onError={(e) => e.target.src = '/images/album-placeholder.jpg'}
+                  onError={(e) => handleImageError(e, item.album_id)}
                 />
               </div>
               <div className="cart-item-details">
@@ -81,7 +81,7 @@ function Cart({ onCheckout }) {
                 className="cart-item-remove"
                 onClick={() => removeFromCart(item.album_id)}
               >
-                🗑️
+                Remove
               </button>
             </div>
           ))}

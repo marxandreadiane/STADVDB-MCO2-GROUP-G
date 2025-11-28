@@ -11,7 +11,7 @@
 
 .orders-header h1 {
   font-size: 2.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #1a1a2e;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin-bottom: 0.5rem;
@@ -81,12 +81,10 @@
 
 .order-summary {
   padding: 1.5rem;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 1rem;
-  flex-wrap: wrap;
 }
 
 .order-main-info {
@@ -130,7 +128,8 @@
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: fit-content;
 }
 
 .order-status {
@@ -143,6 +142,9 @@
   align-items: center;
   gap: 0.5rem;
   text-transform: uppercase;
+  white-space: nowrap;
+  min-width: 140px;
+  justify-content: center;
 }
 
 .status-icon {
@@ -187,11 +189,18 @@
   transform: scale(1.1);
 }
 
+.order-details-popup {
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1.5rem;
+  animation: slideDown 0.3s ease;
+}
+
 .order-details {
   padding: 2rem;
   background: #f9f9f9;
-  border-top: 2px solid #e0e0e0;
-  animation: slideDown 0.3s ease;
+  border-radius: 15px;
 }
 
 @keyframes slideDown {
@@ -285,18 +294,13 @@
     font-size: 2rem;
   }
 
-  .order-summary {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .order-main-info {
     width: 100%;
   }
 
   .order-meta {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
   }
 
   .order-item {

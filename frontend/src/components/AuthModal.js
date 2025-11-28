@@ -72,7 +72,7 @@ function AuthModal({ isOpen, onClose, onSuccess, mode: initialMode = 'login' }) 
       <div className="auth-modal" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>×</button>
         
-        <h2>{mode === 'login' ? '🔐 Login' : '✨ Sign Up'}</h2>
+        <h2>{mode === 'login' ? 'Login' : 'Sign Up'}</h2>
         <p className="modal-subtitle">
           {mode === 'login' 
             ? 'Welcome back! Please login to continue.' 
@@ -145,7 +145,7 @@ function AuthModal({ isOpen, onClose, onSuccess, mode: initialMode = 'login' }) 
             </>
           )}
 
-          {error && <div className="auth-error">⚠️ {error}</div>}
+          {error && <div className="auth-error">{error}</div>}
 
           <button type="submit" className="auth-submit" disabled={loading}>
             {loading ? 'Processing...' : mode === 'login' ? 'Login' : 'Sign Up'}

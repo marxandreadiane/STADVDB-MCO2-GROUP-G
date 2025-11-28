@@ -1,28 +1,39 @@
 .navbar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 1rem 2rem;
+  background: #1a1a2e;
+  padding: 0.8rem 3rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   position: sticky;
   top: 0;
   z-index: 1000;
+  height: 70px;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
 }
 
 .navbar-brand h1 {
   color: white;
   margin: 0;
   font-size: 1.8rem;
-  font-weight: bold;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
 
 .navbar-menu {
   list-style: none;
   display: flex;
-  gap: 1rem;
+  gap: 2.5rem;
   margin: 0;
   padding: 0;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .navbar-menu li {
@@ -32,26 +43,77 @@
 .navbar-menu button {
   background: transparent;
   border: none;
-  color: white;
+  color: rgba(255, 255, 255, 0.85);
   font-size: 1rem;
-  padding: 0.5rem 1.5rem;
+  padding: 0.5rem 0;
   cursor: pointer;
-  border-radius: 5px;
   transition: all 0.3s ease;
   font-weight: 500;
+  position: relative;
+}
+
+.navbar-menu button::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: #fff;
+  transition: width 0.3s ease;
 }
 
 .navbar-menu button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+  color: #fff;
+}
+
+.navbar-menu button:hover::after {
+  width: 100%;
 }
 
 .navbar-menu li.active button {
-  background: rgba(255, 255, 255, 0.3);
-  font-weight: bold;
+  color: #fff;
+  font-weight: 600;
 }
 
-.cart-nav button {
+.navbar-menu li.active button::after {
+  width: 100%;
+}
+
+/* RIGHT SIDE ACTIONS */
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-left: auto;
+}
+
+/* Icon Buttons */
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.icon-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.icon-btn.active {
+  color: #fff;
+}
+
+/* Cart Button */
+.cart-btn {
   position: relative;
 }
 
@@ -62,37 +124,51 @@
   background: #ff4757;
   color: white;
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  min-width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: bold;
+  padding: 0 5px;
+  border: 2px solid #1a1a2e;
 }
 
+/* User Info */
 .user-info {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 0.5rem 1rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .user-info span {
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+/* Login Button */
+.login-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   color: white;
-  font-weight: 600;
-  padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 20px;
+  padding: 0.5rem 1.2rem;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
 }
 
-.login-btn,
-.logout-btn {
-  background: rgba(255, 255, 255, 0.25) !important;
-  font-weight: 600 !important;
-}
-
-.login-btn:hover,
-.logout-btn:hover {
-  background: rgba(255, 255, 255, 0.35) !important;
+.login-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
 /* DROPDOWN STYLES */
@@ -100,53 +176,84 @@
   position: relative;
 }
 
+.dropdown::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 0.5rem;
+  background: transparent;
+  z-index: 1000;
+}
+
 .dropdown-btn {
   background: transparent !important;
   border: none;
-  color: white;
+  color: rgba(255, 255, 255, 0.85) !important;
   font-size: 1rem;
-  padding: 0.5rem 1.5rem;
+  padding: 0.5rem 1rem !important;
   cursor: pointer;
-  border-radius: 5px;
   transition: all 0.3s ease;
   font-weight: 500;
+  position: relative;
+}
+
+.dropdown-btn::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 1rem;
+  right: 1rem;
+  width: auto;
+  height: 2px;
+  background: #fff;
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+  transform-origin: left;
 }
 
 .dropdown:hover .dropdown-btn,
 .dropdown.active .dropdown-btn {
-  background: rgba(255, 255, 255, 0.2) !important;
+  color: #fff !important;
+}
+
+.dropdown:hover .dropdown-btn::after,
+.dropdown.active .dropdown-btn::after {
+  transform: scaleX(1);
 }
 
 .dropdown-menu {
   position: absolute;
-  top: 100%;
-  left: 0;
-  background: white;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a2e;
   border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   min-width: 200px;
-  margin-top: 0.5rem;
   padding: 0.5rem 0;
   animation: slideDown 0.2s ease;
   z-index: 1001;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateX(-50%) translateY(-10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(-50%) translateY(0);
   }
 }
 
 .dropdown-menu button {
   width: 100%;
   text-align: left;
-  background: white !important;
-  color: #333;
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.85);
   padding: 0.8rem 1.5rem;
   border: none;
   cursor: pointer;
@@ -156,50 +263,117 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  position: relative;
+}
+
+.dropdown-menu button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #fff;
+  transform: scaleY(0);
+  transition: transform 0.2s ease;
 }
 
 .dropdown-menu button:hover {
-  background: #f8f9ff !important;
-  color: #667eea;
-  transform: translateX(5px);
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff;
+  padding-left: 1.8rem;
 }
 
-.cart-badge-inline {
-  background: #ff4757;
-  color: white;
-  border-radius: 50%;
-  padding: 0.2rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: bold;
-  margin-left: auto;
+.dropdown-menu button:hover::before {
+  transform: scaleY(1);
 }
 
-.user-info-item {
-  display: flex;
-  align-items: center;
+/* Icons in navbar */
+.navbar button svg,
+.navbar a svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
 }
 
-.user-info-item span {
-  color: white;
-  font-weight: 600;
-  padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 20px;
+.navbar-actions svg {
+  width: 20px;
+  height: 20px;
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 968px) {
   .navbar {
-    flex-direction: column;
+    flex-wrap: wrap;
+    height: auto;
+    padding: 1rem 2rem;
     gap: 1rem;
   }
 
   .navbar-menu {
+    position: static;
+    transform: none;
     flex-wrap: wrap;
     justify-content: center;
+    gap: 1.5rem;
+    order: 3;
+    width: 100%;
+  }
+
+  .navbar-actions {
+    margin-left: auto;
+    order: 2;
   }
 
   .dropdown-menu {
     min-width: 150px;
+    left: 0;
+    transform: translateX(0);
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateX(0) translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) translateY(0);
+    }
+  }
+
+  .dropdown::before {
+    display: none;
+  }
+
+  .dropdown-btn {
+    padding: 0.5rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar {
+    padding: 1rem;
+  }
+
+  .navbar-brand h1 {
+    font-size: 1.4rem;
+  }
+
+  .navbar-menu {
+    gap: 1rem;
+  }
+
+  .navbar-actions {
+    gap: 0.8rem;
+  }
+
+  .user-info span {
+    display: none;
+  }
+
+  .user-info {
+    padding: 0.5rem;
+    border: none;
   }
 }

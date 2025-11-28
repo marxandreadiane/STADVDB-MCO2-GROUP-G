@@ -9,6 +9,12 @@ services:
       - app-network
     stdin_open: true
     tty: true
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
 
   backend:
     build: ./backend
@@ -16,9 +22,118 @@ services:
       - "5000:5000"
     env_file:
       - ./.env
+    environment:
+      DB_REPORTS_HOST: postgres
+      DB_REPORTS_PORT: 5432
+      DB_REPORTS_USER: postgres
+      DB_REPORTS_PASS: postgres
+      DB_REPORTS_NAME: kpop_store
+      DB_SSL: "false"
     networks:
       - app-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  postgres:
+    image: postgres:15
+    container_name: local_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: kpop_store
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/local-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  replicator:
+    build: ./backend
+    container_name: db_replicator
+    command: node replication.js
+    env_file:
+      - ./.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  olap_structure_check:
+    build: ./backend
+    container_name: olap_structure_check
+    command: node database/reset-olap.js
+    env_file:
+      - ./.env
+    environment:
+      DB_REPORTS_HOST: postgres
+      DB_REPORTS_PORT: 5432
+      DB_REPORTS_USER: postgres
+      DB_REPORTS_PASS: postgres
+      DB_REPORTS_NAME: kpop_store
+      DB_SSL: "false"
+    volumes:
+      - ./database:/app/database
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: "no"
+
+  olap_replicator:
+    build: ./backend
+    container_name: olap_replicator
+    command: node olap-replicator.js
+    env_file:
+      - ./.env
+    environment:
+      DB_REPORTS_HOST: postgres
+      DB_REPORTS_PORT: 5432
+      DB_REPORTS_USER: postgres
+      DB_REPORTS_PASS: postgres
+      DB_REPORTS_NAME: kpop_store
+      DB_SSL: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      olap_structure_check:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@kpopstore.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - app-network
+    depends_on:
+      - postgres
 
 networks:
   app-network:
     driver: bridge
+
+volumes:
+  postgres_data:
+  pgadmin_data:

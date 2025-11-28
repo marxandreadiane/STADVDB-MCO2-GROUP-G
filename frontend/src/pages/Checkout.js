@@ -103,7 +103,7 @@ function Checkout({ onBack, onSuccess }) {
     <div className="checkout">
       <div className="checkout-header">
         <button className="back-button" onClick={onBack}>← Back to Cart</button>
-        <h1>💳 Checkout</h1>
+        <h1>Checkout</h1>
       </div>
 
       <div className="checkout-content">
@@ -172,7 +172,7 @@ function Checkout({ onBack, onSuccess }) {
                     checked={formData.paymentMethod === 'CREDIT_CARD'}
                     onChange={handleChange}
                   />
-                  <span>💳 Credit Card</span>
+                  <span>Credit Card</span>
                 </label>
                 <label className={formData.paymentMethod === 'DEBIT_CARD' ? 'active' : ''}>
                   <input
@@ -182,7 +182,7 @@ function Checkout({ onBack, onSuccess }) {
                     checked={formData.paymentMethod === 'DEBIT_CARD'}
                     onChange={handleChange}
                   />
-                  <span>💳 Debit Card</span>
+                  <span>Debit Card</span>
                 </label>
                 <label className={formData.paymentMethod === 'PAYPAL' ? 'active' : ''}>
                   <input
@@ -192,7 +192,7 @@ function Checkout({ onBack, onSuccess }) {
                     checked={formData.paymentMethod === 'PAYPAL'}
                     onChange={handleChange}
                   />
-                  <span>🅿️ PayPal</span>
+                  <span>PayPal</span>
                 </label>
                 <label className={formData.paymentMethod === 'GCASH' ? 'active' : ''}>
                   <input
@@ -202,14 +202,14 @@ function Checkout({ onBack, onSuccess }) {
                     checked={formData.paymentMethod === 'GCASH'}
                     onChange={handleChange}
                   />
-                  <span>📱 GCash</span>
+                  <span>GCash</span>
                 </label>
               </div>
             </div>
 
             {error && (
               <div className="error-message">
-                ⚠️ {error}
+                {error}
               </div>
             )}
 

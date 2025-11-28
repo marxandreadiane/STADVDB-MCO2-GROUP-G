@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --production
+# Install dependencies (including dev for nodemon)
+RUN npm install
 
 # Copy the rest of the app
 COPY . .
@@ -16,5 +16,5 @@ COPY . .
 # Expose the backend port
 EXPOSE 5000
 
-# Start the server
-CMD ["node", "server.js"]
+# Start the server with nodemon for development
+CMD ["npm", "run", "dev"]
