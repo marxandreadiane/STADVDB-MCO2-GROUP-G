@@ -5,13 +5,10 @@
  * @returns {string} - The image URL to use
  */
 export const getAlbumImageUrl = (imageUrl, albumId) => {
-  // If image_url is provided, use it directly
   if (imageUrl) {
     return imageUrl;
   }
   
-  // Otherwise, try .webp first, then .jpg as fallback
-  // The onError handler will handle the fallback
   return `/images/albums/${albumId}.webp`;
 };
 
@@ -29,9 +26,7 @@ export const handleImageError = (e, albumId) => {
   const isWebp = currentSrc.includes(`${albumId}.webp`) || currentSrc.endsWith('.webp');
   const isJpg = currentSrc.includes(`${albumId}.jpg`) || currentSrc.endsWith('.jpg');
   
-  // Prevent infinite loop by checking if we've already tried switching
   if (img.dataset.triedAlternate === 'true') {
-    // Both formats tried, use placeholder
     img.src = '/images/album-placeholder.jpg';
     return;
   }

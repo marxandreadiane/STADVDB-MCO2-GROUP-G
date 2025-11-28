@@ -145,7 +145,7 @@ function AuthModal({ isOpen, onClose, onSuccess, mode: initialMode = 'login' }) 
             </>
           )}
 
-          {error && <div className="auth-error">⚠️ {error}</div>}
+          {error && <div className="auth-error">{error}</div>}
 
           <button type="submit" className="auth-submit" disabled={loading}>
             {loading ? 'Processing...' : mode === 'login' ? 'Login' : 'Sign Up'}

@@ -22,10 +22,8 @@ const localDb = new Pool({
 
 // Configuration for data sync
 const SYNC_CONFIG = {
-  // Sync interval in milliseconds (default: 5 minutes)
   interval: process.env.SYNC_INTERVAL || 300000,
 
-  // Tables to sync (in order of dependencies)
   tables: [
     "companies",
     "artists",
@@ -35,25 +33,8 @@ const SYNC_CONFIG = {
     "order_items",
     "cart_items",
   ],
-
-  // Custom filters per table (optional)
-  filters: {
-    // Example: Only sync orders from last 30 days
-    // orders: { created_at: { gte: '2024-11-01' } },
-    // Example: Only sync specific companies
-    // companies: { name: { in: ['SM Entertainment', 'JYP Entertainment'] } },
-    // Example: Only sync albums in stock
-    // albums: { stock_quantity: { gt: 0 } },
-  },
-
-  // Columns to exclude per table (optional)
-  exclude: {
-    // Example: Don't sync user passwords
-    // users: ['password'],
-  },
 };
 
-// Wait for local database to be ready
 async function waitForDatabase() {
   console.log("Waiting for PostgreSQL to be ready...");
   let retries = 30;
@@ -73,13 +54,11 @@ async function waitForDatabase() {
   throw new Error("PostgreSQL failed to start");
 }
 
-// Sync data from Supabase to local PostgreSQL
+
 async function syncTable(table) {
   try {
-    // Build query with optional filters
     let query = supabase.from(table).select("*");
 
-    // Apply filters if defined
     if (SYNC_CONFIG.filters[table]) {
       const filters = SYNC_CONFIG.filters[table];
       for (const [column, condition] of Object.entries(filters)) {
@@ -96,16 +75,16 @@ async function syncTable(table) {
     const { data, error } = await query;
 
     if (error) {
-      console.error(`❌ Error fetching from ${table}:`, error.message);
+      console.error(`Error fetching from ${table}:`, error.message);
       return { success: false, count: 0 };
     }
 
     if (!data || data.length === 0) {
-      console.log(`⚪ No data in ${table}`);
+      console.log(`No data in ${table}`);
       return { success: true, count: 0 };
     }
 
-    // Filter out excluded columns
+  
     let processedData = data;
     if (SYNC_CONFIG.exclude[table]) {
       const excludeCols = SYNC_CONFIG.exclude[table];
@@ -174,7 +153,7 @@ function getPrimaryKey(table) {
 
 // Perform full sync of all tables
 async function performFullSync() {
-  console.log("\n🔄 Starting data sync...\n");
+  console.log("\nStarting data sync...\n");
   const startTime = Date.now();
 
   let totalRecords = 0;
@@ -186,26 +165,26 @@ async function performFullSync() {
       successCount++;
       totalRecords += result.count;
       if (result.count > 0) {
-        console.log(`✅ Synced ${result.count} rows from ${table}`);
+        console.log(`Synced ${result.count} rows from ${table}`);
       }
     }
   }
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   console.log(
-    `\n✅ Sync complete! ${successCount}/${SYNC_CONFIG.tables.length} tables synced (${totalRecords} total records) in ${duration}s\n`
+    `\nSync complete! ${successCount}/${SYNC_CONFIG.tables.length} tables synced (${totalRecords} total records) in ${duration}s\n`
   );
 }
 
 // Schedule periodic syncs
 function startPeriodicSync() {
   const intervalMinutes = Math.round(SYNC_CONFIG.interval / 60000);
-  console.log(`⏰ Scheduled sync every ${intervalMinutes} minutes\n`);
-  console.log("🎯 Sync service is running and monitoring...\n");
+  console.log(`Scheduled sync every ${intervalMinutes} minutes\n`);
+  console.log("Sync service is running and monitoring...\n");
 
   setInterval(async () => {
     console.log(
-      `\n⏰ [${new Date().toLocaleString()}] Starting scheduled sync...`
+      `\n[${new Date().toLocaleString()}] Starting scheduled sync...`
     );
     await performFullSync();
   }, SYNC_CONFIG.interval);
@@ -214,7 +193,7 @@ function startPeriodicSync() {
 // Start sync service
 async function startSyncService() {
   try {
-    console.log("\n🚀 Starting Supabase to PostgreSQL Sync Service...\n");
+    console.log("\nStarting Supabase to PostgreSQL Sync Service...\n");
     console.log("📋 Configuration:");
     console.log(
       `   - Sync interval: ${Math.round(SYNC_CONFIG.interval / 60000)} minutes`
@@ -231,20 +210,20 @@ async function startSyncService() {
     await performFullSync();
     startPeriodicSync();
   } catch (error) {
-    console.error("❌ Sync service failed:", error.message);
+    console.error("Sync service failed:", error.message);
     process.exit(1);
   }
 }
 
 // Handle graceful shutdown
 process.on("SIGTERM", async () => {
-  console.log("\n⚠️ Received SIGTERM, shutting down gracefully...");
+  console.log("\nReceived SIGTERM, shutting down gracefully...");
   await localDb.end();
   process.exit(0);
 });
 
 process.on("SIGINT", async () => {
-  console.log("\n⚠️ Received SIGINT, shutting down gracefully...");
+  console.log("\nReceived SIGINT, shutting down gracefully...");
   await localDb.end();
   process.exit(0);
 });

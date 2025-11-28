@@ -31,7 +31,7 @@ async function refreshOLAPReports() {
         `[${new Date().toISOString()}] OLAP reports refreshed successfully`
       );
 
-      // Log data freshness (only if view exists)
+      // Log data freshness if view exists
       try {
         const freshnessResult = await client.query(
           "SELECT * FROM olap_data_freshness"
@@ -45,7 +45,6 @@ async function refreshOLAPReports() {
           );
         });
       } catch (err) {
-        // olap_data_freshness view might not exist yet
         console.log("  (Data freshness view not available)");
       }
     } finally {
@@ -59,14 +58,14 @@ async function refreshOLAPReports() {
   }
 }
 
-// Initial refresh on startup (after 3 seconds to allow database to be ready)
+// Initial refresh on startup
 setTimeout(() => {
   console.log("Running initial refresh...");
   refreshOLAPReports();
 }, 3000);
 
 // Schedule periodic refresh every 5 minutes
-const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
+const REFRESH_INTERVAL = 5 * 60 * 1000; 
 
 setInterval(() => {
   refreshOLAPReports();
@@ -74,7 +73,6 @@ setInterval(() => {
 
 console.log(`Scheduled refresh every ${REFRESH_INTERVAL / 1000 / 60} minutes`);
 
-// Graceful shutdown
 process.on("SIGTERM", async () => {
   console.log("Shutting down OLAP replicator...");
   await olapPool.end();

@@ -23,7 +23,7 @@ async function testConnection() {
     const dbInfo = await pool.query(
       "SELECT current_database(), current_schema()"
     );
-    console.log("\n✅ Connected to database:", dbInfo.rows[0]);
+    console.log("\nConnected to database:", dbInfo.rows[0]);
 
     const tablesResult = await pool.query(`
       SELECT tablename 
@@ -32,7 +32,7 @@ async function testConnection() {
       ORDER BY tablename
     `);
 
-    console.log("\n📋 Tables in public schema:");
+    console.log("\nTables in public schema:");
     tablesResult.rows.forEach((row) => console.log("  -", row.tablename));
 
     const usersCheck = await pool.query(`
@@ -42,8 +42,8 @@ async function testConnection() {
     `);
 
     console.log(
-      "\n👤 Users table exists:",
-      usersCheck.rows.length > 0 ? "✅ YES" : "❌ NO"
+      "\nUsers table exists:",
+      usersCheck.rows.length > 0 ? "YES" : "NO"
     );
 
     if (usersCheck.rows.length > 0) {
@@ -59,7 +59,7 @@ async function testConnection() {
       );
     }
   } catch (error) {
-    console.error("\n❌ Connection error:", error.message);
+    console.error("\nConnection error:", error.message);
     console.error("Error code:", error.code);
   } finally {
     await pool.end();

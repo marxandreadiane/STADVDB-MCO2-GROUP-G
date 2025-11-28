@@ -318,30 +318,30 @@ function Admin() {
     
     if (!checkData.canDelete) {
       // Show options when deletion is blocked
-      let message = `⚠️ ${checkData.message}\n\n`;
+      let message = `${checkData.message}\n\n`;
       message += `Dependencies: ${checkData.dependencies.join(', ')}\n\n`;
       message += `Choose an option:\n`;
       
       if (activeTab === 'albums') {
         message += `1. Set Stock to 0 (Disable album but keep history)\n`;
-        message += `2. Force Delete Everything (⚠️ PERMANENT - deletes all related orders)\n`;
+        message += `2. Force Delete Everything (PERMANENT - deletes all related orders)\n`;
         message += `3. Cancel\n\n`;
         message += `Enter 1, 2, or 3:`;
         
         const choice = prompt(message);
         if (choice === '1') deleteOption = 'setStockZero';
         else if (choice === '2') {
-          if (!window.confirm(`⚠️ WARNING: This will permanently delete the album "${itemName}" and ALL related order records. This cannot be undone! Are you absolutely sure?`)) return;
+          if (!window.confirm(`WARNING: This will permanently delete the album "${itemName}" and ALL related order records. This cannot be undone! Are you absolutely sure?`)) return;
           deleteOption = 'force';
         } else return;
       } else {
-        message += `1. Force Delete Everything (⚠️ PERMANENT - deletes all related records)\n`;
+        message += `1. Force Delete Everything (PERMANENT - deletes all related records)\n`;
         message += `2. Cancel\n\n`;
         message += `Enter 1 or 2:`;
         
         const choice = prompt(message);
         if (choice === '1') {
-          if (!window.confirm(`⚠️ WARNING: This will permanently delete the ${itemType} "${itemName}" and ALL related records. This cannot be undone! Are you absolutely sure?`)) return;
+          if (!window.confirm(`WARNING: This will permanently delete the ${itemType} "${itemName}" and ALL related records. This cannot be undone! Are you absolutely sure?`)) return;
           deleteOption = 'force';
         } else return;
       }
@@ -363,21 +363,21 @@ function Admin() {
         const result = await response.json();
         let successMessage = result.message;
         
-        if (result.deletedOrderItems) successMessage += `\n\n📊 Deleted ${result.deletedOrderItems} order item(s)`;
-        if (result.deletedAlbums) successMessage += `\n📀 Deleted ${result.deletedAlbums} album(s)`;
-        if (result.deletedArtists) successMessage += `\n🎤 Deleted ${result.deletedArtists} artist(s)`;
-        if (result.deletedOrders) successMessage += `\n📦 Deleted ${result.deletedOrders} order(s)`;
-        if (result.deletedPayments) successMessage += `\n💳 Deleted ${result.deletedPayments} payment(s)`;
+        if (result.deletedOrderItems) successMessage += `\n\nDeleted ${result.deletedOrderItems} order item(s)`;
+        if (result.deletedAlbums) successMessage += `\nDeleted ${result.deletedAlbums} album(s)`;
+        if (result.deletedArtists) successMessage += `\nDeleted ${result.deletedArtists} artist(s)`;
+        if (result.deletedOrders) successMessage += `\nDeleted ${result.deletedOrders} order(s)`;
+        if (result.deletedPayments) successMessage += `\nDeleted ${result.deletedPayments} payment(s)`;
         
-        alert('✅ ' + successMessage);
+        alert(successMessage);
         fetchData();
       } else {
         const error = await response.json();
-        alert(`❌ Error: ${error.error || 'Delete failed'}\n\n${error.suggestion || ''}`);
+        alert(`Error: ${error.error || 'Delete failed'}\n\n${error.suggestion || ''}`);
       }
     } catch (error) {
       console.error('Delete error:', error);
-      alert('❌ Error deleting item');
+      alert('Error deleting item');
     }
   };
 
@@ -432,7 +432,6 @@ function Admin() {
 
     validateImagePath();
 
-    // reset input value to allow re-selecting same file
     event.target.value = '';
   };
 
@@ -487,7 +486,7 @@ function Admin() {
     return (
       <div className="admin-page">
         <div className="admin-error">
-          <h2>🔒 Access Denied</h2>
+          <h2>Access Denied</h2>
           <p>Please log in to access the admin panel.</p>
         </div>
       </div>
@@ -498,9 +497,9 @@ function Admin() {
     return (
       <div className="admin-page">
         <div className="admin-error">
-          <h2>⛔ Unauthorized</h2>
+          <h2>Unauthorized</h2>
           <p>You do not have admin privileges.</p>
-          <p className="admin-hint">💡 Admin accounts: admin@kpopstore.com (password: admin123)</p>
+          <p className="admin-hint">Admin accounts: admin@kpopstore.com (password: admin123)</p>
         </div>
       </div>
     );

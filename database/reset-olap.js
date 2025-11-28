@@ -55,13 +55,11 @@ async function checkAndResetOLAP() {
   } catch (err) {
     console.error('Error checking/resetting OLAP structure:', err.message);
     console.error(err.stack);
-    // Don't throw - allow service to continue
   } finally {
     client.release();
   }
 }
 
-// Run check on startup
 checkAndResetOLAP()
   .then(() => {
     console.log('OLAP structure check complete');
