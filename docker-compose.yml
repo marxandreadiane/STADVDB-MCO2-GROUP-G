@@ -22,6 +22,13 @@ services:
       - "5000:5000"
     env_file:
       - ./.env
+    environment:
+      DB_REPORTS_HOST: postgres
+      DB_REPORTS_PORT: 5432
+      DB_REPORTS_USER: postgres
+      DB_REPORTS_PASS: postgres
+      DB_REPORTS_NAME: kpop_store
+      DB_SSL: "false"
     networks:
       - app-network
     volumes:
@@ -61,15 +68,47 @@ services:
       - app-network
     restart: unless-stopped
 
+  olap_structure_check:
+    build: ./backend
+    container_name: olap_structure_check
+    command: node database/reset-olap.js
+    env_file:
+      - ./.env
+    environment:
+      DB_REPORTS_HOST: postgres
+      DB_REPORTS_PORT: 5432
+      DB_REPORTS_USER: postgres
+      DB_REPORTS_PASS: postgres
+      DB_REPORTS_NAME: kpop_store
+      DB_SSL: "false"
+    volumes:
+      - ./database:/app/database
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: "no"
+
   olap_replicator:
     build: ./backend
     container_name: olap_replicator
     command: node olap-replicator.js
     env_file:
       - ./.env
+    environment:
+      DB_REPORTS_HOST: postgres
+      DB_REPORTS_PORT: 5432
+      DB_REPORTS_USER: postgres
+      DB_REPORTS_PASS: postgres
+      DB_REPORTS_NAME: kpop_store
+      DB_SSL: "false"
     depends_on:
       postgres:
         condition: service_healthy
+      olap_structure_check:
+        condition: service_completed_successfully
     networks:
       - app-network
     restart: unless-stopped

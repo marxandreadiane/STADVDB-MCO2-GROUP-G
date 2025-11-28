@@ -2174,6 +2174,7 @@ app.get("/api/admin/check-delete/:type/:id", async (req, res) => {
 // ========================================
 
 // 📊 ROLL UP: Sales aggregated by Company → Artist → Album (hierarchical)
+// Uses denormalized tables: company_sales_report, album_sales_report, sales_fact
 app.get("/api/reports/rollup-sales", async (req, res) => {
   const { level } = req.query; // 'company', 'artist', or 'album'
 
@@ -2181,62 +2182,48 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
     let query = "";
 
     if (level === "company") {
-      // Roll up to company level (highest aggregation)
+      // Roll up to company level - use denormalized company_sales_report
       query = `
         SELECT 
-          c.name as company_name,
-          COALESCE(SUM(oi.quantity), 0) as total_orders,
-          COALESCE(SUM(oi.quantity), 0) as total_units_sold,
-          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
-        FROM companies c
-        JOIN artists ar ON c.company_id = ar.company_id
-        JOIN albums al ON ar.artist_id = al.artist_id
-        JOIN order_items oi ON al.album_id = oi.album_id
-        JOIN orders o ON oi.order_id = o.order_id
-        WHERE o.status = ANY($1)
-        GROUP BY c.company_id, c.name
-        ORDER BY total_revenue DESC
+          company_name,
+          total_orders,
+          albums_sold as total_units_sold,
+          total_sales as total_revenue
+        FROM company_sales_report
+        ORDER BY total_sales DESC
       `;
     } else if (level === "artist") {
-      // Roll up to artist level
+      // Roll up to artist level - use sales_fact for flexibility
       query = `
         SELECT 
-          c.name as company_name,
-          ar.name as artist_name,
-          COALESCE(SUM(oi.quantity), 0) as total_orders,
-          COALESCE(SUM(oi.quantity), 0) as total_units_sold,
-          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
-        FROM companies c
-        JOIN artists ar ON c.company_id = ar.company_id
-        JOIN albums al ON ar.artist_id = al.artist_id
-        JOIN order_items oi ON al.album_id = oi.album_id
-        JOIN orders o ON oi.order_id = o.order_id
-        WHERE o.status = ANY($1)
-        GROUP BY c.company_id, c.name, ar.artist_id, ar.name
+          company_name,
+          artist_name,
+          COUNT(DISTINCT order_id) as total_orders,
+          SUM(quantity) as total_units_sold,
+          SUM(total_amount) as total_revenue
+        FROM sales_fact
+        WHERE order_status = ANY($1)
+        GROUP BY company_name, artist_name
         ORDER BY total_revenue DESC
       `;
     } else {
-      // Most detailed level (album)
+      // Most detailed level (album) - use denormalized album_sales_report
       query = `
         SELECT 
-          c.name as company_name,
-          ar.name as artist_name,
-          al.title as album_title,
-          COALESCE(SUM(oi.quantity), 0) as total_orders,
-          COALESCE(SUM(oi.quantity), 0) as total_units_sold,
-          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
-        FROM companies c
-        JOIN artists ar ON c.company_id = ar.company_id
-        JOIN albums al ON ar.artist_id = al.artist_id
-        JOIN order_items oi ON al.album_id = oi.album_id
-        JOIN orders o ON oi.order_id = o.order_id
-        WHERE o.status = ANY($1)
-        GROUP BY c.company_id, c.name, ar.artist_id, ar.name, al.album_id, al.title
+          company_name,
+          artist_name,
+          album_name as album_title,
+          sales_count as total_orders,
+          sales_count as total_units_sold,
+          total_revenue
+        FROM album_sales_report
         ORDER BY total_revenue DESC
       `;
     }
 
-    const result = await reportsDB.query(query, [ANALYTICS_STATUSES]);
+    const result = level === "company" || level === "album" 
+      ? await reportsDB.query(query)
+      : await reportsDB.query(query, [ANALYTICS_STATUSES]);
     res.json(result.rows);
   } catch (err) {
     console.error("Roll up error:", err);
@@ -2245,6 +2232,7 @@ app.get("/api/reports/rollup-sales", async (req, res) => {
 });
 
 // 🔍 DRILL DOWN: Start from summary and drill into details
+// Uses denormalized sales_fact table
 app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
   const { type, id } = req.params; // type: 'company' or 'artist', id: entity id
 
@@ -2252,40 +2240,32 @@ app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
     let query = "";
 
     if (type === "company") {
-      // Drill down from company to see all artists
+      // Drill down from company to see all artists - use sales_fact
       query = `
         SELECT 
-          ar.artist_id,
-          ar.name as artist_name,
-          ar.fandom_name,
-          COUNT(DISTINCT o.order_id) as total_orders,
-          SUM(oi.quantity) as total_units_sold,
-          SUM(oi.quantity * oi.price) as total_revenue
-        FROM artists ar
-        JOIN albums al ON ar.artist_id = al.artist_id
-        LEFT JOIN order_items oi ON al.album_id = oi.album_id
-        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.status = ANY($2)
-        WHERE ar.company_id = $1
-        GROUP BY ar.artist_id, ar.name, ar.fandom_name
-        ORDER BY total_revenue DESC NULLS LAST
+          artist_id,
+          artist_name,
+          COUNT(DISTINCT order_id) as total_orders,
+          SUM(quantity) as total_units_sold,
+          SUM(total_amount) as total_revenue
+        FROM sales_fact
+        WHERE company_id = $1 AND order_status = ANY($2)
+        GROUP BY artist_id, artist_name
+        ORDER BY total_revenue DESC
       `;
     } else if (type === "artist") {
-      // Drill down from artist to see all albums
+      // Drill down from artist to see all albums - use sales_fact
       query = `
         SELECT 
-          al.album_id,
-          al.title as album_title,
-          al.release_date,
-          al.price,
-          al.stock_quantity,
-          COALESCE(COUNT(DISTINCT o.order_id), 0) as total_orders,
-          COALESCE(SUM(oi.quantity), 0) as total_units_sold,
-          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue
-        FROM albums al
-        LEFT JOIN order_items oi ON al.album_id = oi.album_id
-        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.status = ANY($2)
-        WHERE al.artist_id = $1
-        GROUP BY al.album_id, al.title, al.release_date, al.price, al.stock_quantity
+          album_id,
+          album_title,
+          COUNT(DISTINCT order_id) as total_orders,
+          SUM(quantity) as total_units_sold,
+          SUM(total_amount) as total_revenue,
+          AVG(price) as price
+        FROM sales_fact
+        WHERE artist_id = $1 AND order_status = ANY($2)
+        GROUP BY album_id, album_title, price
         ORDER BY total_revenue DESC
       `;
     }
@@ -2299,6 +2279,7 @@ app.get("/api/reports/drilldown/:type/:id", async (req, res) => {
 });
 
 // 🎲 DICE: Multi-dimensional filtering (Date Range + Status + Price Range)
+// Uses denormalized sales_fact table
 app.get("/api/reports/dice", async (req, res) => {
   const {
     startDate,
@@ -2312,38 +2293,38 @@ app.get("/api/reports/dice", async (req, res) => {
   } = req.query;
 
   try {
-    let whereConditions = [`o.status = ANY($1)`];
+    let whereConditions = [`order_status = ANY($1)`];
     let params = [ANALYTICS_STATUSES];
     let paramIndex = 2;
 
     if (startDate) {
-      whereConditions.push(`o.order_date >= $${paramIndex}`);
+      whereConditions.push(`order_date >= $${paramIndex}`);
       params.push(startDate);
       paramIndex++;
     }
 
     if (endDate) {
-      whereConditions.push(`o.order_date <= $${paramIndex}`);
+      whereConditions.push(`order_date <= $${paramIndex}`);
       params.push(endDate);
       paramIndex++;
     }
 
     if (status && status !== "ALL") {
-      whereConditions.push(`o.status = $${paramIndex}`);
+      whereConditions.push(`order_status = $${paramIndex}`);
       params.push(status);
       paramIndex++;
     }
 
     const companyIdInt = parseInteger(companyId);
     if (companyIdInt) {
-      whereConditions.push(`ar.company_id = $${paramIndex}`);
+      whereConditions.push(`company_id = $${paramIndex}`);
       params.push(companyIdInt);
       paramIndex++;
     }
 
     const artistIdInt = parseInteger(artistId);
     if (artistIdInt) {
-      whereConditions.push(`ar.artist_id = $${paramIndex}`);
+      whereConditions.push(`artist_id = $${paramIndex}`);
       params.push(artistIdInt);
       paramIndex++;
     }
@@ -2353,12 +2334,12 @@ app.get("/api/reports/dice", async (req, res) => {
       const parsedArtist = parseInteger(albumArtistPart);
       if (parsedArtist && normalizedTitlePart) {
         if (!artistIdInt) {
-          whereConditions.push(`ar.artist_id = $${paramIndex}`);
+          whereConditions.push(`artist_id = $${paramIndex}`);
           params.push(parsedArtist);
           paramIndex++;
         }
         whereConditions.push(
-          `LOWER(TRIM(split_part(al.title, '-', 1))) = $${paramIndex}`
+          `LOWER(TRIM(split_part(album_title, '-', 1))) = $${paramIndex}`
         );
         params.push(normalizedTitlePart);
         paramIndex++;
@@ -2366,38 +2347,33 @@ app.get("/api/reports/dice", async (req, res) => {
     }
 
     if (minPrice) {
-      whereConditions.push(`oi.price >= $${paramIndex}`);
+      whereConditions.push(`price >= $${paramIndex}`);
       params.push(minPrice);
       paramIndex++;
     }
 
     if (maxPrice) {
-      whereConditions.push(`oi.price <= $${paramIndex}`);
+      whereConditions.push(`price <= $${paramIndex}`);
       params.push(maxPrice);
       paramIndex++;
     }
 
     const query = `
       SELECT 
-        o.order_id,
-        o.order_date,
-        o.status,
-        u.username,
-        u.email,
-        al.title as album_title,
-        ar.name as artist_name,
-        c.name as company_name,
-        oi.quantity,
-        oi.price,
-        (oi.quantity * oi.price) as total_amount
-      FROM orders o
-      JOIN users u ON o.user_id = u.user_id
-      JOIN order_items oi ON o.order_id = oi.order_id
-      JOIN albums al ON oi.album_id = al.album_id
-      JOIN artists ar ON al.artist_id = ar.artist_id
-      JOIN companies c ON ar.company_id = c.company_id
+        order_id,
+        order_date,
+        order_status as status,
+        username,
+        email,
+        album_title,
+        artist_name,
+        company_name,
+        quantity,
+        price,
+        total_amount
+      FROM sales_fact
       WHERE ${whereConditions.join(" AND ")}
-      ORDER BY o.order_date DESC
+      ORDER BY order_date DESC
       LIMIT 100
     `;
 
@@ -2413,22 +2389,21 @@ app.get("/api/reports/dice/filters", async (_req, res) => {
   try {
     const [companies, artists, albums] = await Promise.all([
       reportsDB.query(
-        "SELECT company_id, name FROM companies ORDER BY name ASC"
+        "SELECT DISTINCT company_id, company_name as name FROM sales_fact ORDER BY name ASC"
       ),
       reportsDB.query(
-        "SELECT artist_id, company_id, name FROM artists ORDER BY name ASC"
+        "SELECT DISTINCT artist_id, company_id, artist_name as name FROM sales_fact ORDER BY name ASC"
       ),
       reportsDB.query(
         `
-          SELECT DISTINCT ON (ar.artist_id, LOWER(TRIM(split_part(al.title, '-', 1))))
-            CONCAT(ar.artist_id, '::', LOWER(TRIM(split_part(al.title, '-', 1)))) AS album_key,
-            TRIM(split_part(al.title, '-', 1)) AS base_title,
-            ar.artist_id,
-            ar.name AS artist_name,
-            ar.company_id
-          FROM albums al
-          JOIN artists ar ON al.artist_id = ar.artist_id
-          ORDER BY ar.artist_id, LOWER(TRIM(split_part(al.title, '-', 1))), al.album_id ASC
+          SELECT DISTINCT ON (artist_id, LOWER(TRIM(split_part(album_title, '-', 1))))
+            CONCAT(artist_id, '::', LOWER(TRIM(split_part(album_title, '-', 1)))) AS album_key,
+            TRIM(split_part(album_title, '-', 1)) AS base_title,
+            artist_id,
+            artist_name,
+            company_id
+          FROM sales_fact
+          ORDER BY artist_id, LOWER(TRIM(split_part(album_title, '-', 1))), album_id ASC
         `
       ),
     ]);
@@ -2463,21 +2438,21 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
 
   try {
     if (dimension === "time") {
+      // Use sales_fact for daily/yearly, monthly_sales_report for monthly
       const [daily, monthly, yearly] = await Promise.all([
         reportsDB.query(
           `
             SELECT 
-              DATE_TRUNC('day', o.order_date)::date AS date,
-              COUNT(DISTINCT o.order_id) AS total_orders,
-              COALESCE(SUM(oi.quantity * oi.price), 0) AS total_revenue,
-              CASE WHEN COUNT(DISTINCT o.order_id) = 0 
+              DATE_TRUNC('day', order_date)::date AS date,
+              COUNT(DISTINCT order_id) AS total_orders,
+              COALESCE(SUM(total_amount), 0) AS total_revenue,
+              CASE WHEN COUNT(DISTINCT order_id) = 0 
                 THEN 0 
-                ELSE SUM(oi.quantity * oi.price) / COUNT(DISTINCT o.order_id) 
+                ELSE SUM(total_amount) / COUNT(DISTINCT order_id) 
               END AS avg_order_value
-            FROM orders o
-            JOIN order_items oi ON o.order_id = oi.order_id
-            WHERE o.status = ANY($1)
-              AND o.order_date >= NOW() - INTERVAL '30 days'
+            FROM sales_fact
+            WHERE order_status = ANY($1)
+              AND order_date >= NOW() - INTERVAL '30 days'
             GROUP BY date
             ORDER BY date DESC
           `,
@@ -2486,39 +2461,31 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
         reportsDB.query(
           `
             SELECT 
-              TO_CHAR(DATE_TRUNC('month', o.order_date), 'YYYY Mon') AS label,
-              CONCAT('Q', CEIL(EXTRACT(MONTH FROM o.order_date)/3)::INT, ' ', EXTRACT(YEAR FROM o.order_date)::INT) AS quarter,
-              COUNT(DISTINCT o.order_id) AS total_orders,
-              COALESCE(SUM(oi.quantity * oi.price), 0) AS total_revenue,
-              CASE WHEN COUNT(DISTINCT o.order_id) = 0 
-                THEN 0 
-                ELSE SUM(oi.quantity * oi.price) / COUNT(DISTINCT o.order_id) 
-              END AS avg_order_value
-            FROM orders o
-            JOIN order_items oi ON o.order_id = oi.order_id
-            WHERE o.status = ANY($1)
-              AND o.order_date >= DATE_TRUNC('month', NOW()) - INTERVAL '11 months'
-            GROUP BY DATE_TRUNC('month', o.order_date), label, quarter
-            ORDER BY DATE_TRUNC('month', o.order_date) DESC
-          `,
-          [ANALYTICS_STATUSES]
+              TO_CHAR(month, 'YYYY Mon') AS label,
+              CONCAT('Q', CEIL(EXTRACT(MONTH FROM month)/3)::INT, ' ', EXTRACT(YEAR FROM month)::INT) AS quarter,
+              total_orders,
+              total_revenue,
+              avg_order_value
+            FROM monthly_sales_report
+            WHERE month >= DATE_TRUNC('month', NOW()) - INTERVAL '11 months'
+            ORDER BY month DESC
+          `
         ),
         reportsDB.query(
           `
             SELECT 
-              TO_CHAR(DATE_TRUNC('year', o.order_date), 'YYYY') AS label,
-              COUNT(DISTINCT o.order_id) AS total_orders,
-              COALESCE(SUM(oi.quantity * oi.price), 0) AS total_revenue,
-              CASE WHEN COUNT(DISTINCT o.order_id) = 0 
+              TO_CHAR(DATE_TRUNC('year', order_date), 'YYYY') AS label,
+              COUNT(DISTINCT order_id) AS total_orders,
+              COALESCE(SUM(total_amount), 0) AS total_revenue,
+              CASE WHEN COUNT(DISTINCT order_id) = 0 
                 THEN 0 
-                ELSE SUM(oi.quantity * oi.price) / COUNT(DISTINCT o.order_id) 
+                ELSE SUM(total_amount) / COUNT(DISTINCT order_id) 
               END AS avg_order_value
-            FROM orders o
-            JOIN order_items oi ON o.order_id = oi.order_id
-            WHERE o.status = ANY($1)
-              AND o.order_date >= DATE_TRUNC('year', NOW()) - INTERVAL '4 years'
-            GROUP BY DATE_TRUNC('year', o.order_date), label
-            ORDER BY DATE_TRUNC('year', o.order_date) DESC
+            FROM sales_fact
+            WHERE order_status = ANY($1)
+              AND order_date >= DATE_TRUNC('year', NOW()) - INTERVAL '4 years'
+            GROUP BY DATE_TRUNC('year', order_date), label
+            ORDER BY DATE_TRUNC('year', order_date) DESC
           `,
           [ANALYTICS_STATUSES]
         ),
@@ -2535,58 +2502,68 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
     let params = [];
 
     if (dimension === "status") {
+      // Use sales_fact for status dimension
       query = `
         SELECT 
-          o.status,
-          COUNT(DISTINCT o.order_id) as total_orders,
-          SUM(o.total_amount) as total_revenue,
-          AVG(o.total_amount) as avg_order_value
-        FROM orders o
-        ${value ? `WHERE o.status = $1` : ""}
-        GROUP BY o.status
+          order_status as status,
+          COUNT(DISTINCT order_id) as total_orders,
+          SUM(total_amount) as total_revenue,
+          AVG(total_amount) as avg_order_value
+        FROM sales_fact
+        ${value ? `WHERE order_status = $1` : ""}
+        GROUP BY order_status
         ORDER BY total_orders DESC
       `;
       if (value) params.push(value);
     } else if (dimension === "company") {
-      query = `
-        SELECT 
-          c.company_id,
-          c.name as company_name,
-          COALESCE(SUM(oi.quantity), 0) as total_orders,
-          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue,
-          CASE 
-            WHEN COALESCE(SUM(oi.quantity), 0) = 0 THEN 0
-            ELSE SUM(oi.quantity * oi.price) / NULLIF(SUM(oi.quantity), 0)
-          END as avg_order_value
-        FROM companies c
-        JOIN artists ar ON c.company_id = ar.company_id
-        JOIN albums al ON ar.artist_id = al.artist_id
-        JOIN order_items oi ON al.album_id = oi.album_id
-        JOIN orders o ON oi.order_id = o.order_id
-        WHERE o.status = ANY($1)
-          ${value ? `AND c.company_id = $2` : ""}
-        GROUP BY c.company_id, c.name
-        ORDER BY total_revenue DESC
-      `;
-      params = value ? [ANALYTICS_STATUSES, value] : [ANALYTICS_STATUSES];
+      // Use denormalized company_sales_report or sales_fact
+      if (value) {
+        query = `
+          SELECT 
+            company_id,
+            company_name,
+            COUNT(DISTINCT order_id) as total_orders,
+            SUM(total_amount) as total_revenue,
+            CASE 
+              WHEN COUNT(DISTINCT order_id) = 0 THEN 0
+              ELSE SUM(total_amount) / COUNT(DISTINCT order_id)
+            END as avg_order_value
+          FROM sales_fact
+          WHERE order_status = ANY($1) AND company_id = $2
+          GROUP BY company_id, company_name
+          ORDER BY total_revenue DESC
+        `;
+        params = [ANALYTICS_STATUSES, value];
+      } else {
+        query = `
+          SELECT 
+            company_name,
+            total_orders,
+            total_sales as total_revenue,
+            CASE 
+              WHEN total_orders = 0 THEN 0
+              ELSE total_sales / total_orders
+            END as avg_order_value
+          FROM company_sales_report
+          ORDER BY total_sales DESC
+        `;
+      }
     } else if (dimension === "artist") {
+      // Use sales_fact for artist dimension
       query = `
         SELECT 
-          ar.artist_id,
-          ar.name as artist_name,
-          COALESCE(SUM(oi.quantity), 0) as total_orders,
-          COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue,
+          artist_id,
+          artist_name,
+          COUNT(DISTINCT order_id) as total_orders,
+          SUM(total_amount) as total_revenue,
           CASE 
-            WHEN COALESCE(SUM(oi.quantity), 0) = 0 THEN 0
-            ELSE SUM(oi.quantity * oi.price) / NULLIF(SUM(oi.quantity), 0)
+            WHEN COUNT(DISTINCT order_id) = 0 THEN 0
+            ELSE SUM(total_amount) / COUNT(DISTINCT order_id)
           END as avg_order_value
-        FROM artists ar
-        JOIN albums al ON ar.artist_id = al.artist_id
-        JOIN order_items oi ON al.album_id = oi.album_id
-        JOIN orders o ON oi.order_id = o.order_id
-        WHERE o.status = ANY($1)
-          ${value ? `AND ar.artist_id = $2` : ""}
-        GROUP BY ar.artist_id, ar.name
+        FROM sales_fact
+        WHERE order_status = ANY($1)
+          ${value ? `AND artist_id = $2` : ""}
+        GROUP BY artist_id, artist_name
         ORDER BY total_revenue DESC
       `;
       params = value ? [ANALYTICS_STATUSES, value] : [ANALYTICS_STATUSES];
@@ -2603,6 +2580,7 @@ app.get("/api/reports/slice/:dimension", async (req, res) => {
 });
 
 // 📈 Additional: Sales trends over time
+// Uses denormalized sales_fact table and monthly_sales_report
 app.get("/api/reports/sales-trends", async (req, res) => {
   const granularity = (req.query.granularity || "daily").toLowerCase();
 
@@ -2613,58 +2591,53 @@ app.get("/api/reports/sales-trends", async (req, res) => {
     if (granularity === "daily") {
       query = `
         SELECT 
-          DATE_TRUNC('day', o.order_date)::date as date,
-          COUNT(DISTINCT o.order_id) as orders,
-          SUM(oi.quantity * oi.price) as revenue
-        FROM orders o
-        JOIN order_items oi ON o.order_id = oi.order_id
-        WHERE o.status = ANY($1)
-          AND o.order_date >= NOW() - INTERVAL '30 days'
-        GROUP BY DATE_TRUNC('day', o.order_date)
-        ORDER BY DATE_TRUNC('day', o.order_date)
+          DATE_TRUNC('day', order_date)::date as date,
+          COUNT(DISTINCT order_id) as orders,
+          SUM(total_amount) as revenue
+        FROM sales_fact
+        WHERE order_status = ANY($1)
+          AND order_date >= NOW() - INTERVAL '30 days'
+        GROUP BY DATE_TRUNC('day', order_date)
+        ORDER BY DATE_TRUNC('day', order_date)
       `;
     } else if (granularity === "monthly") {
       query = `
         SELECT 
-          TO_CHAR(DATE_TRUNC('month', o.order_date), 'YYYY Mon') as period,
-          CONCAT('Q', CEIL(EXTRACT(MONTH FROM o.order_date)/3)::INT, ' ', EXTRACT(YEAR FROM o.order_date)::INT) AS quarter,
-          COUNT(DISTINCT o.order_id) as orders,
-          SUM(oi.quantity * oi.price) as revenue,
+          TO_CHAR(month, 'YYYY Mon') as period,
+          CONCAT('Q', CEIL(EXTRACT(MONTH FROM month)/3)::INT, ' ', EXTRACT(YEAR FROM month)::INT) AS quarter,
+          total_orders as orders,
+          total_revenue as revenue,
           'month' as type
-        FROM orders o
-        JOIN order_items oi ON o.order_id = oi.order_id
-        WHERE o.status = ANY($1)
-          AND o.order_date >= DATE_TRUNC('month', NOW()) - INTERVAL '11 months'
-        GROUP BY DATE_TRUNC('month', o.order_date), period, quarter
-        ORDER BY DATE_TRUNC('month', o.order_date)
+        FROM monthly_sales_report
+        WHERE month >= DATE_TRUNC('month', NOW()) - INTERVAL '11 months'
+        ORDER BY month
       `;
+      params = [];
     } else if (granularity === "quarterly") {
       query = `
         SELECT 
-          TO_CHAR(DATE_TRUNC('quarter', o.order_date), '"Q"Q YYYY') as period,
-          COUNT(DISTINCT o.order_id) as orders,
-          SUM(oi.quantity * oi.price) as revenue,
+          TO_CHAR(DATE_TRUNC('quarter', order_date), '"Q"Q YYYY') as period,
+          COUNT(DISTINCT order_id) as orders,
+          SUM(total_amount) as revenue,
           'quarter' as type
-        FROM orders o
-        JOIN order_items oi ON o.order_id = oi.order_id
-        WHERE o.status = ANY($1)
-          AND o.order_date >= DATE_TRUNC('quarter', NOW()) - INTERVAL '21 months'
-        GROUP BY DATE_TRUNC('quarter', o.order_date), period
-        ORDER BY DATE_TRUNC('quarter', o.order_date)
+        FROM sales_fact
+        WHERE order_status = ANY($1)
+          AND order_date >= DATE_TRUNC('quarter', NOW()) - INTERVAL '21 months'
+        GROUP BY DATE_TRUNC('quarter', order_date), period
+        ORDER BY DATE_TRUNC('quarter', order_date)
       `;
     } else {
       query = `
         SELECT 
-          TO_CHAR(DATE_TRUNC('year', o.order_date), 'YYYY') as period,
-          COUNT(DISTINCT o.order_id) as orders,
-          SUM(oi.quantity * oi.price) as revenue,
+          TO_CHAR(DATE_TRUNC('year', order_date), 'YYYY') as period,
+          COUNT(DISTINCT order_id) as orders,
+          SUM(total_amount) as revenue,
           'year' as type
-        FROM orders o
-        JOIN order_items oi ON o.order_id = oi.order_id
-        WHERE o.status = ANY($1)
-          AND o.order_date >= DATE_TRUNC('year', NOW()) - INTERVAL '4 years'
-        GROUP BY DATE_TRUNC('year', o.order_date), period
-        ORDER BY DATE_TRUNC('year', o.order_date)
+        FROM sales_fact
+        WHERE order_status = ANY($1)
+          AND order_date >= DATE_TRUNC('year', NOW()) - INTERVAL '4 years'
+        GROUP BY DATE_TRUNC('year', order_date), period
+        ORDER BY DATE_TRUNC('year', order_date)
       `;
     }
 

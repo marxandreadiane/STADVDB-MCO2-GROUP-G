@@ -1,58 +1,8 @@
 -- ============================================
--- OLAP DATABASE SETUP FOR KPOP STORE
--- Analytics and Reporting Tables
--- Run this in your LOCAL PostgreSQL via pgAdmin
--- This creates a separate OLAP database that pulls data from Supabase
+-- OLAP DENORMALIZED TABLES CREATION
+-- This file contains only the OLAP table and function creation
+-- Used by reset-olap.js to recreate OLAP structure
 -- ============================================
-
--- ============================================
--- PART 0: SETUP FOREIGN DATA WRAPPER
--- ============================================
-
--- Install postgres_fdw extension (if not already installed)
-CREATE EXTENSION IF NOT EXISTS postgres_fdw;
-
--- Create foreign server connection to Supabase
--- Credentials from your .env file
-CREATE SERVER IF NOT EXISTS supabase_server
-    FOREIGN DATA WRAPPER postgres_fdw
-    OPTIONS (
-        host 'aws-1-ap-southeast-2.pooler.supabase.com',
-        port '6543',
-        dbname 'postgres',
-        sslmode 'require'
-    );
-
--- Create user mapping for the foreign server
--- Using your actual Supabase credentials
-CREATE USER MAPPING IF NOT EXISTS FOR postgres
-    SERVER supabase_server
-    OPTIONS (
-        user 'postgres.ucrvnxomoogsbcpbnldi',
-        password 'kpop-db-pass'
-    );
-
--- Import foreign schemas (tables from Supabase)
--- This creates local references to remote tables
-DROP SCHEMA IF EXISTS supabase_data CASCADE;
-CREATE SCHEMA supabase_data;
-
-IMPORT FOREIGN SCHEMA public
-    LIMIT TO (companies, artists, albums, users, orders, order_items, payments, cart_items)
-    FROM SERVER supabase_server
-    INTO supabase_data;
-
--- ============================================
--- PART 1: DROP OLD VIEWS & CREATE OLAP REPORTING TABLES
--- ============================================
-
--- Drop old views if they exist (from OLTP setup)
-DROP VIEW IF EXISTS company_sales_report CASCADE;
-DROP VIEW IF EXISTS album_sales_report CASCADE;
-DROP VIEW IF EXISTS monthly_sales_report CASCADE;
-DROP VIEW IF EXISTS top_customers_report CASCADE;
-DROP VIEW IF EXISTS payment_method_report CASCADE;
-DROP VIEW IF EXISTS cart_items_detailed CASCADE;
 
 -- 1. Company Sales Report Table
 CREATE TABLE IF NOT EXISTS company_sales_report (
@@ -131,48 +81,65 @@ CREATE TABLE IF NOT EXISTS cart_items_detailed (
     snapshot_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ============================================
--- PART 2: CREATE INDEXES FOR PERFORMANCE
--- ============================================
+-- 7. Sales Fact Table (Denormalized Transaction-Level Data)
+CREATE TABLE IF NOT EXISTS sales_fact (
+    fact_id SERIAL PRIMARY KEY,
+    order_item_id INTEGER NOT NULL,
+    order_id INTEGER NOT NULL,
+    order_date TIMESTAMP NOT NULL,
+    order_status VARCHAR(20) NOT NULL,
+    user_id INTEGER NOT NULL,
+    username VARCHAR(100),
+    email VARCHAR(150),
+    album_id INTEGER NOT NULL,
+    album_title VARCHAR(200) NOT NULL,
+    artist_id INTEGER NOT NULL,
+    artist_name VARCHAR(150) NOT NULL,
+    company_id INTEGER NOT NULL,
+    company_name VARCHAR(150) NOT NULL,
+    quantity INTEGER NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    total_amount DECIMAL(10,2) NOT NULL,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(order_item_id)
+);
 
--- Indexes for company_sales_report
+-- Create indexes for OLAP tables
 CREATE INDEX IF NOT EXISTS idx_company_sales_name ON company_sales_report(company_name);
 CREATE INDEX IF NOT EXISTS idx_company_sales_updated ON company_sales_report(last_updated);
-
--- Indexes for album_sales_report
 CREATE INDEX IF NOT EXISTS idx_album_sales_album ON album_sales_report(album_name);
 CREATE INDEX IF NOT EXISTS idx_album_sales_artist ON album_sales_report(artist_name);
 CREATE INDEX IF NOT EXISTS idx_album_sales_company ON album_sales_report(company_name);
 CREATE INDEX IF NOT EXISTS idx_album_sales_updated ON album_sales_report(last_updated);
-
--- Indexes for monthly_sales_report
 CREATE INDEX IF NOT EXISTS idx_monthly_sales_month ON monthly_sales_report(month DESC);
 CREATE INDEX IF NOT EXISTS idx_monthly_sales_updated ON monthly_sales_report(last_updated);
-
--- Indexes for top_customers_report
 CREATE INDEX IF NOT EXISTS idx_customers_user_id ON top_customers_report(user_id);
 CREATE INDEX IF NOT EXISTS idx_customers_spent ON top_customers_report(total_spent DESC);
 CREATE INDEX IF NOT EXISTS idx_customers_updated ON top_customers_report(last_updated);
-
--- Indexes for payment_method_report
 CREATE INDEX IF NOT EXISTS idx_payment_method ON payment_method_report(method);
 CREATE INDEX IF NOT EXISTS idx_payment_updated ON payment_method_report(last_updated);
-
--- Indexes for cart_items_detailed
 CREATE INDEX IF NOT EXISTS idx_cart_detailed_user ON cart_items_detailed(user_id);
 CREATE INDEX IF NOT EXISTS idx_cart_detailed_album ON cart_items_detailed(album_id);
 CREATE INDEX IF NOT EXISTS idx_cart_detailed_snapshot ON cart_items_detailed(snapshot_date DESC);
+CREATE INDEX IF NOT EXISTS idx_sales_fact_order_id ON sales_fact(order_id);
+CREATE INDEX IF NOT EXISTS idx_sales_fact_order_date ON sales_fact(order_date DESC);
+CREATE INDEX IF NOT EXISTS idx_sales_fact_order_status ON sales_fact(order_status);
+CREATE INDEX IF NOT EXISTS idx_sales_fact_user_id ON sales_fact(user_id);
+CREATE INDEX IF NOT EXISTS idx_sales_fact_album_id ON sales_fact(album_id);
+CREATE INDEX IF NOT EXISTS idx_sales_fact_artist_id ON sales_fact(artist_id);
+CREATE INDEX IF NOT EXISTS idx_sales_fact_company_id ON sales_fact(company_id);
+CREATE INDEX IF NOT EXISTS idx_sales_fact_company_name ON sales_fact(company_name);
+CREATE INDEX IF NOT EXISTS idx_sales_fact_artist_name ON sales_fact(artist_name);
+CREATE INDEX IF NOT EXISTS idx_sales_fact_updated ON sales_fact(last_updated);
 
 -- ============================================
--- PART 3: DATA REFRESH FUNCTIONS
+-- OLAP REFRESH FUNCTIONS
 -- ============================================
 
 -- Function to refresh Company Sales Report
 CREATE OR REPLACE FUNCTION refresh_company_sales_report()
 RETURNS VOID AS $$
 BEGIN
-    -- Pull data from Supabase via Foreign Data Wrapper
-    
     DELETE FROM company_sales_report;
     
     INSERT INTO company_sales_report (company_name, total_sales, total_orders, albums_sold, last_updated)
@@ -182,11 +149,11 @@ BEGIN
         COUNT(DISTINCT o.order_id) as total_orders,
         COUNT(DISTINCT al.album_id) as albums_sold,
         CURRENT_TIMESTAMP
-    FROM supabase_data.companies c
-    LEFT JOIN supabase_data.artists ar ON c.company_id = ar.company_id
-    LEFT JOIN supabase_data.albums al ON ar.artist_id = al.artist_id
-    LEFT JOIN supabase_data.order_items oi ON al.album_id = oi.album_id
-    LEFT JOIN supabase_data.orders o ON oi.order_id = o.order_id AND o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+    FROM companies c
+    LEFT JOIN artists ar ON c.company_id = ar.company_id
+    LEFT JOIN albums al ON ar.artist_id = al.artist_id
+    LEFT JOIN order_items oi ON al.album_id = oi.album_id
+    LEFT JOIN orders o ON oi.order_id = o.order_id AND o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
     GROUP BY c.company_id, c.name
     ON CONFLICT (company_name) 
     DO UPDATE SET
@@ -212,11 +179,11 @@ BEGIN
         COALESCE(SUM(oi.quantity * oi.price), 0) as total_revenue,
         al.price as unit_price,
         CURRENT_TIMESTAMP
-    FROM supabase_data.albums al
-    LEFT JOIN supabase_data.artists ar ON al.artist_id = ar.artist_id
-    LEFT JOIN supabase_data.companies c ON ar.company_id = c.company_id
-    LEFT JOIN supabase_data.order_items oi ON al.album_id = oi.album_id
-    LEFT JOIN supabase_data.orders o ON oi.order_id = o.order_id AND o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+    FROM albums al
+    LEFT JOIN artists ar ON al.artist_id = ar.artist_id
+    LEFT JOIN companies c ON ar.company_id = c.company_id
+    LEFT JOIN order_items oi ON al.album_id = oi.album_id
+    LEFT JOIN orders o ON oi.order_id = o.order_id AND o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
     GROUP BY al.album_id, al.title, ar.name, c.name, al.price
     ON CONFLICT (album_name, artist_name)
     DO UPDATE SET
@@ -241,7 +208,7 @@ BEGIN
         SUM(o.total_amount) as total_revenue,
         AVG(o.total_amount) as avg_order_value,
         CURRENT_TIMESTAMP
-    FROM supabase_data.orders o
+    FROM orders o
     WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
     GROUP BY DATE_TRUNC('month', o.order_date)
     ON CONFLICT (month)
@@ -268,8 +235,8 @@ BEGIN
         COALESCE(SUM(o.total_amount), 0) as total_spent,
         COALESCE(AVG(o.total_amount), 0) as avg_order_value,
         CURRENT_TIMESTAMP
-    FROM supabase_data.users u
-    LEFT JOIN supabase_data.orders o ON u.user_id = o.user_id AND o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+    FROM users u
+    LEFT JOIN orders o ON u.user_id = o.user_id AND o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
     GROUP BY u.user_id, u.username, u.email
     ON CONFLICT (user_id)
     DO UPDATE SET
@@ -295,7 +262,7 @@ BEGIN
         SUM(p.amount) as total_amount,
         AVG(p.amount) as avg_transaction_amount,
         CURRENT_TIMESTAMP
-    FROM supabase_data.payments p
+    FROM payments p
     WHERE p.status = 'COMPLETED'
     GROUP BY p.method
     ON CONFLICT (method)
@@ -329,10 +296,70 @@ BEGIN
         al.image_url,
         (ci.quantity * al.price) as subtotal,
         CURRENT_TIMESTAMP
-    FROM supabase_data.cart_items ci
-    JOIN supabase_data.albums al ON ci.album_id = al.album_id
-    JOIN supabase_data.artists ar ON al.artist_id = ar.artist_id
-    JOIN supabase_data.companies c ON ar.company_id = c.company_id;
+    FROM cart_items ci
+    JOIN albums al ON ci.album_id = al.album_id
+    JOIN artists ar ON al.artist_id = ar.artist_id
+    JOIN companies c ON ar.company_id = c.company_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to refresh Sales Fact Table (Denormalized Transaction Data)
+CREATE OR REPLACE FUNCTION refresh_sales_fact()
+RETURNS VOID AS $$
+BEGIN
+    DELETE FROM sales_fact;
+    
+    INSERT INTO sales_fact (
+        order_item_id, order_id, order_date, order_status,
+        user_id, username, email,
+        album_id, album_title,
+        artist_id, artist_name,
+        company_id, company_name,
+        quantity, price, total_amount, last_updated
+    )
+    SELECT 
+        oi.order_item_id,
+        o.order_id,
+        o.order_date,
+        o.status as order_status,
+        u.user_id,
+        u.username,
+        u.email,
+        al.album_id,
+        al.title as album_title,
+        ar.artist_id,
+        ar.name as artist_name,
+        c.company_id,
+        c.name as company_name,
+        oi.quantity,
+        oi.price,
+        (oi.quantity * oi.price) as total_amount,
+        CURRENT_TIMESTAMP
+    FROM order_items oi
+    JOIN orders o ON oi.order_id = o.order_id
+    JOIN users u ON o.user_id = u.user_id
+    JOIN albums al ON oi.album_id = al.album_id
+    JOIN artists ar ON al.artist_id = ar.artist_id
+    JOIN companies c ON ar.company_id = c.company_id
+    WHERE o.status IN ('PAID', 'SHIPPED', 'DELIVERED')
+    ON CONFLICT (order_item_id) 
+    DO UPDATE SET
+        order_id = EXCLUDED.order_id,
+        order_date = EXCLUDED.order_date,
+        order_status = EXCLUDED.order_status,
+        user_id = EXCLUDED.user_id,
+        username = EXCLUDED.username,
+        email = EXCLUDED.email,
+        album_id = EXCLUDED.album_id,
+        album_title = EXCLUDED.album_title,
+        artist_id = EXCLUDED.artist_id,
+        artist_name = EXCLUDED.artist_name,
+        company_id = EXCLUDED.company_id,
+        company_name = EXCLUDED.company_name,
+        quantity = EXCLUDED.quantity,
+        price = EXCLUDED.price,
+        total_amount = EXCLUDED.total_amount,
+        last_updated = EXCLUDED.last_updated;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -346,39 +373,9 @@ BEGIN
     PERFORM refresh_top_customers_report();
     PERFORM refresh_payment_method_report();
     PERFORM refresh_cart_items_detailed();
+    PERFORM refresh_sales_fact();
     
     RAISE NOTICE 'All OLAP reports refreshed successfully at %', CURRENT_TIMESTAMP;
 END;
 $$ LANGUAGE plpgsql;
 
--- ============================================
--- PART 4: VERIFICATION
--- ============================================
-
--- Check if all tables were created
-SELECT 
-    table_name,
-    (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name) as column_count
-FROM (
-    VALUES 
-        ('company_sales_report'), 
-        ('album_sales_report'), 
-        ('monthly_sales_report'),
-        ('top_customers_report'),
-        ('payment_method_report'),
-        ('cart_items_detailed')
-) AS t(table_name)
-WHERE EXISTS (
-    SELECT 1 FROM information_schema.tables 
-    WHERE table_name = t.table_name
-)
-ORDER BY table_name;
-
--- Success message
-SELECT '✅ OLAP DATABASE SETUP SUCCESSFUL!' as status,
-       '📊 6 reporting tables created' as tables,
-       '🔍 Performance indexes added' as indexes,
-       '⚡ 7 refresh functions available' as functions,
-       '🔄 Use refresh_all_reports() to sync data' as usage,
-       '🌐 Connected to Supabase via Foreign Data Wrapper' as connection,
-       '📍 Access via pgAdmin at http://localhost:5050' as access;
