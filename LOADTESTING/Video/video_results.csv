@@ -1,0 +1,101 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1765208631488,2840,HTTP Request,200,OK,Shoppers (Race Condition) 1-14,text,true,,428,595,100,100,http://localhost:5000/api/orders,2832,0,44
+1765208631487,3039,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-8,text,false,,364,595,99,99,http://localhost:5000/api/orders,3039,0,44
+1765208631487,3040,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-1,text,false,,364,595,98,98,http://localhost:5000/api/orders,3040,0,44
+1765208631520,3011,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-18,text,false,,364,595,97,97,http://localhost:5000/api/orders,3011,0,12
+1765208631502,3030,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-16,text,false,,364,595,96,96,http://localhost:5000/api/orders,3030,0,30
+1765208631487,3046,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-7,text,false,,364,595,95,95,http://localhost:5000/api/orders,3046,0,44
+1765208631511,3024,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-17,text,false,,364,595,94,94,http://localhost:5000/api/orders,3024,0,21
+1765208631487,3052,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-3,text,false,,364,595,93,93,http://localhost:5000/api/orders,3052,0,44
+1765208631488,3072,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-12,text,false,,364,595,92,92,http://localhost:5000/api/orders,3072,0,44
+1765208631487,3073,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-2,text,false,,364,595,92,92,http://localhost:5000/api/orders,3073,0,44
+1765208631488,4249,HTTP Request,200,OK,Shoppers (Race Condition) 1-13,text,true,,428,595,90,90,http://localhost:5000/api/orders,4249,0,44
+1765208631491,5204,HTTP Request,200,OK,Shoppers (Race Condition) 1-15,text,true,,428,595,89,89,http://localhost:5000/api/orders,5204,0,41
+1765208631487,6163,HTTP Request,200,OK,Shoppers (Race Condition) 1-6,text,true,,428,595,88,88,http://localhost:5000/api/orders,6163,0,44
+1765208631488,7119,HTTP Request,200,OK,Shoppers (Race Condition) 1-11,text,true,,428,595,87,87,http://localhost:5000/api/orders,7119,0,45
+1765208631541,8036,HTTP Request,200,OK,Shoppers (Race Condition) 1-20,text,true,,428,595,86,86,http://localhost:5000/api/orders,8036,0,1
+1765208631533,8984,HTTP Request,200,OK,Shoppers (Race Condition) 1-19,text,true,,428,595,85,85,http://localhost:5000/api/orders,8984,0,1
+1765208631551,10280,HTTP Request,200,OK,Shoppers (Race Condition) 1-21,text,true,,428,595,84,84,http://localhost:5000/api/orders,10280,0,1
+1765208631589,11159,HTTP Request,200,OK,Shoppers (Race Condition) 1-25,text,true,,428,595,83,83,http://localhost:5000/api/orders,11159,0,1
+1765208631600,12094,HTTP Request,200,OK,Shoppers (Race Condition) 1-26,text,true,,428,595,82,82,http://localhost:5000/api/orders,12094,0,1
+1765208631581,13066,HTTP Request,200,OK,Shoppers (Race Condition) 1-24,text,true,,428,595,81,81,http://localhost:5000/api/orders,13066,0,1
+1765208631569,14018,HTTP Request,200,OK,Shoppers (Race Condition) 1-23,text,true,,428,595,80,80,http://localhost:5000/api/orders,14018,0,1
+1765208631488,15051,HTTP Request,200,OK,Shoppers (Race Condition) 1-10,text,true,,428,595,79,79,http://localhost:5000/api/orders,15051,0,44
+1765208631609,16260,HTTP Request,200,OK,Shoppers (Race Condition) 1-27,text,true,,428,595,78,78,http://localhost:5000/api/orders,16260,0,1
+1765208631639,17149,HTTP Request,200,OK,Shoppers (Race Condition) 1-30,text,true,,428,595,77,77,http://localhost:5000/api/orders,17149,0,1
+1765208631561,18529,HTTP Request,200,OK,Shoppers (Race Condition) 1-22,text,true,,428,595,76,76,http://localhost:5000/api/orders,18529,0,2
+1765208631650,19333,HTTP Request,200,OK,Shoppers (Race Condition) 1-31,text,true,,428,595,75,75,http://localhost:5000/api/orders,19333,0,1
+1765208631680,20266,HTTP Request,200,OK,Shoppers (Race Condition) 1-34,text,true,,428,595,74,74,http://localhost:5000/api/orders,20266,0,1
+1765208631487,21761,HTTP Request,200,OK,Shoppers (Race Condition) 1-5,text,true,,428,595,73,73,http://localhost:5000/api/orders,21761,0,45
+1765208631619,22557,HTTP Request,200,OK,Shoppers (Race Condition) 1-28,text,true,,428,595,72,72,http://localhost:5000/api/orders,22557,0,1
+1765208631700,23425,HTTP Request,200,OK,Shoppers (Race Condition) 1-36,text,true,,428,595,71,71,http://localhost:5000/api/orders,23425,0,0
+1765208631487,24578,HTTP Request,200,OK,Shoppers (Race Condition) 1-9,text,true,,428,595,70,70,http://localhost:5000/api/orders,24578,0,44
+1765208631672,25708,HTTP Request,200,OK,Shoppers (Race Condition) 1-33,text,true,,428,595,69,69,http://localhost:5000/api/orders,25708,0,1
+1765208631721,26908,HTTP Request,200,OK,Shoppers (Race Condition) 1-38,text,true,,428,595,68,68,http://localhost:5000/api/orders,26908,0,1
+1765208631630,27894,HTTP Request,200,OK,Shoppers (Race Condition) 1-29,text,true,,428,595,67,67,http://localhost:5000/api/orders,27894,0,1
+1765208631689,29139,HTTP Request,200,OK,Shoppers (Race Condition) 1-35,text,true,,428,595,66,66,http://localhost:5000/api/orders,29139,0,1
+1765208631710,30016,HTTP Request,200,OK,Shoppers (Race Condition) 1-37,text,true,,428,595,65,65,http://localhost:5000/api/orders,30016,0,1
+1765208631731,30952,HTTP Request,200,OK,Shoppers (Race Condition) 1-39,text,true,,428,595,64,64,http://localhost:5000/api/orders,30951,0,1
+1765208631780,31831,HTTP Request,200,OK,Shoppers (Race Condition) 1-44,text,true,,428,595,63,63,http://localhost:5000/api/orders,31831,0,1
+1765208631791,33123,HTTP Request,200,OK,Shoppers (Race Condition) 1-45,text,true,,428,595,62,62,http://localhost:5000/api/orders,33123,0,0
+1765208631800,34013,HTTP Request,200,OK,Shoppers (Race Condition) 1-46,text,true,,428,595,61,61,http://localhost:5000/api/orders,34013,0,1
+1765208631770,35344,HTTP Request,200,OK,Shoppers (Race Condition) 1-43,text,true,,428,595,60,60,http://localhost:5000/api/orders,35344,0,1
+1765208631740,36267,HTTP Request,200,OK,Shoppers (Race Condition) 1-40,text,true,,428,595,59,59,http://localhost:5000/api/orders,36267,0,1
+1765208631811,37162,HTTP Request,200,OK,Shoppers (Race Condition) 1-47,text,true,,428,595,58,58,http://localhost:5000/api/orders,37162,0,1
+1765208631820,38101,HTTP Request,200,OK,Shoppers (Race Condition) 1-48,text,true,,428,595,57,57,http://localhost:5000/api/orders,38101,0,1
+1765208631839,39047,HTTP Request,200,OK,Shoppers (Race Condition) 1-50,text,true,,428,595,56,56,http://localhost:5000/api/orders,39047,0,1
+1765208631761,40446,HTTP Request,200,OK,Shoppers (Race Condition) 1-42,text,true,,428,595,55,55,http://localhost:5000/api/orders,40446,0,1
+1765208631487,41626,HTTP Request,200,OK,Shoppers (Race Condition) 1-4,text,true,,428,595,54,54,http://localhost:5000/api/orders,41625,0,44
+1765208631830,42594,HTTP Request,200,OK,Shoppers (Race Condition) 1-49,text,true,,428,595,53,53,http://localhost:5000/api/orders,42594,0,2
+1765208631900,43799,HTTP Request,200,OK,Shoppers (Race Condition) 1-56,text,true,,428,595,52,52,http://localhost:5000/api/orders,43799,0,1
+1765208631880,44712,HTTP Request,200,OK,Shoppers (Race Condition) 1-54,text,true,,428,595,51,51,http://localhost:5000/api/orders,44712,0,1
+1765208631929,45990,HTTP Request,200,OK,Shoppers (Race Condition) 1-59,text,true,,428,595,50,50,http://localhost:5000/api/orders,45989,0,1
+1765208631851,47320,HTTP Request,200,OK,Shoppers (Race Condition) 1-51,text,true,,428,595,49,49,http://localhost:5000/api/orders,47320,0,1
+1765208631750,48309,HTTP Request,200,OK,Shoppers (Race Condition) 1-41,text,true,,428,595,48,48,http://localhost:5000/api/orders,48309,0,1
+1765208631909,49121,HTTP Request,200,OK,Shoppers (Race Condition) 1-57,text,true,,428,595,47,47,http://localhost:5000/api/orders,49121,0,1
+1765208631890,50093,HTTP Request,200,OK,Shoppers (Race Condition) 1-55,text,true,,428,595,46,46,http://localhost:5000/api/orders,50093,0,1
+1765208631661,51267,HTTP Request,200,OK,Shoppers (Race Condition) 1-32,text,true,,428,595,45,45,http://localhost:5000/api/orders,51267,0,1
+1765208631869,52027,HTTP Request,200,OK,Shoppers (Race Condition) 1-53,text,true,,428,595,44,44,http://localhost:5000/api/orders,52027,0,1
+1765208631950,53279,HTTP Request,200,OK,Shoppers (Race Condition) 1-61,text,true,,428,595,43,43,http://localhost:5000/api/orders,53279,0,1
+1765208631959,54521,HTTP Request,200,OK,Shoppers (Race Condition) 1-62,text,true,,428,595,42,42,http://localhost:5000/api/orders,54521,0,1
+1765208631919,55414,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-58,text,false,,330,595,41,41,http://localhost:5000/api/orders,55414,0,1
+1765208631989,55925,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-65,text,false,,330,595,40,40,http://localhost:5000/api/orders,55925,0,2
+1765208632030,56765,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-69,text,false,,330,595,39,39,http://localhost:5000/api/orders,56765,0,1
+1765208632021,57616,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-68,text,false,,330,595,38,38,http://localhost:5000/api/orders,57616,0,1
+1765208631860,58364,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-52,text,false,,330,595,37,37,http://localhost:5000/api/orders,58364,0,2
+1765208631979,58887,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-64,text,false,,330,595,36,36,http://localhost:5000/api/orders,58887,0,1
+1765208631940,59554,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-60,text,false,,330,595,35,35,http://localhost:5000/api/orders,59554,0,1
+1765208632040,60337,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-70,text,false,,330,595,34,34,http://localhost:5000/api/orders,60337,0,0
+1765208632049,60911,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-71,text,false,,330,595,33,33,http://localhost:5000/api/orders,60911,0,1
+1765208632060,61787,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-72,text,false,,330,595,32,32,http://localhost:5000/api/orders,61787,0,0
+1765208631969,62459,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-63,text,false,,330,595,31,31,http://localhost:5000/api/orders,62459,0,2
+1765208631999,63067,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-66,text,false,,330,595,30,30,http://localhost:5000/api/orders,63067,0,1
+1765208632070,63886,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-73,text,false,,330,595,29,29,http://localhost:5000/api/orders,63886,0,1
+1765208632010,64533,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-67,text,false,,330,595,28,28,http://localhost:5000/api/orders,64533,0,0
+1765208632079,65089,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-74,text,false,,330,595,27,27,http://localhost:5000/api/orders,65089,0,1
+1765208632091,65716,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-75,text,false,,330,595,26,26,http://localhost:5000/api/orders,65716,0,0
+1765208632100,66338,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-76,text,false,,330,595,25,25,http://localhost:5000/api/orders,66338,0,1
+1765208632110,67217,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-77,text,false,,330,595,24,24,http://localhost:5000/api/orders,67217,0,1
+1765208632120,67787,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-78,text,false,,330,595,23,23,http://localhost:5000/api/orders,67787,0,1
+1765208632130,68665,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-79,text,false,,330,595,22,22,http://localhost:5000/api/orders,68665,0,0
+1765208632140,69227,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-80,text,false,,330,595,21,21,http://localhost:5000/api/orders,69227,0,1
+1765208632151,69850,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-81,text,false,,330,595,20,20,http://localhost:5000/api/orders,69850,0,1
+1765208632161,70728,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-82,text,false,,330,595,19,19,http://localhost:5000/api/orders,70728,0,0
+1765208632171,71305,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-83,text,false,,330,595,18,18,http://localhost:5000/api/orders,71305,0,1
+1765208632180,71918,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-84,text,false,,330,595,17,17,http://localhost:5000/api/orders,71918,0,1
+1765208632189,72539,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-85,text,false,,330,595,16,16,http://localhost:5000/api/orders,72539,0,1
+1765208632199,73154,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-86,text,false,,330,595,15,15,http://localhost:5000/api/orders,73154,0,2
+1765208632209,74024,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-87,text,false,,330,595,14,14,http://localhost:5000/api/orders,74024,0,1
+1765208632220,74598,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-88,text,false,,330,595,13,13,http://localhost:5000/api/orders,74598,0,1
+1765208632230,75480,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-89,text,false,,330,595,12,12,http://localhost:5000/api/orders,75480,0,1
+1765208632240,76063,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-90,text,false,,330,595,11,11,http://localhost:5000/api/orders,76063,0,1
+1765208632250,76680,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-91,text,false,,330,595,10,10,http://localhost:5000/api/orders,76680,0,1
+1765208632259,77563,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-92,text,false,,330,595,9,9,http://localhost:5000/api/orders,77563,0,1
+1765208632270,78140,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-93,text,false,,330,595,8,8,http://localhost:5000/api/orders,78140,0,1
+1765208632280,78753,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-94,text,false,,330,595,7,7,http://localhost:5000/api/orders,78753,0,1
+1765208632290,79379,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-95,text,false,,330,595,6,6,http://localhost:5000/api/orders,79379,0,1
+1765208632299,79991,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-96,text,false,,330,595,5,5,http://localhost:5000/api/orders,79991,0,1
+1765208632310,80865,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-97,text,false,,330,595,4,4,http://localhost:5000/api/orders,80865,0,1
+1765208632320,81433,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-98,text,false,,330,595,3,3,http://localhost:5000/api/orders,81433,0,0
+1765208632330,82304,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-99,text,false,,330,595,2,2,http://localhost:5000/api/orders,82304,0,1
+1765208632341,82866,HTTP Request,500,Internal Server Error,Shoppers (Race Condition) 1-100,text,false,,330,595,1,1,http://localhost:5000/api/orders,82866,0,1

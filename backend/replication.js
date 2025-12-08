@@ -33,6 +33,16 @@ const SYNC_CONFIG = {
     "order_items",
     "cart_items",
   ],
+  filters: {
+    // Example: Only sync orders from last 30 days
+    // orders: { created_at: { gte: '2024-11-01' } },
+  },
+
+  // 👇 ENSURE THIS BLOCK EXISTS (Even if empty)
+  exclude: {
+    // Example: Don't sync user passwords
+    // users: ['password'],
+  },
 };
 
 async function waitForDatabase() {

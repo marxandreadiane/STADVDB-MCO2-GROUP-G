@@ -921,7 +921,7 @@ app.post("/api/orders", async (req, res) => {
     // 2. Create order
     const orderResult = await client.query(
       "INSERT INTO orders (user_id, total_amount, status, shipping_address, phone) VALUES ($1, $2, $3, $4, $5) RETURNING order_id",
-      [userId, total_amount, "PENDING", user.address, user.phone]
+      [userId, total_amount, "PAID", user.address, user.phone]
     );
     const orderId = orderResult.rows[0].order_id;
 
@@ -931,17 +931,23 @@ app.post("/api/orders", async (req, res) => {
     // - This prevents stock from being locked for unconfirmed/pending orders
     // - Admin has control over when inventory is actually committed
     for (const item of items) {
-      // Validate album exists
-      const albumCheck = await client.query(
-        "SELECT album_id FROM albums WHERE album_id = $1",
-        [item.album_id]
+      // ⚡ FORCE ATOMIC UPDATE
+      // This tries to subtract stock immediately. If stock is < quantity, it returns 0 rows.
+      const updateResult = await client.query(
+        "UPDATE albums SET stock_quantity = stock_quantity - $1 WHERE album_id = $2 AND stock_quantity >= $1 RETURNING stock_quantity",
+        [item.quantity, item.album_id]
       );
 
-      if (albumCheck.rows.length === 0) {
-        throw new Error(`Album ${item.album_id} not found`);
+      // If no rows returned, it means stock was insufficient -> FAIL THE ORDER
+      if (updateResult.rows.length === 0) {
+         // Get actual stock for the error message
+         const currentStock = await client.query("SELECT stock_quantity FROM albums WHERE album_id = $1", [item.album_id]);
+         const actual = currentStock.rows[0]?.stock_quantity || 0;
+         
+         throw new Error(`Insufficient stock. Available: ${actual}`);
       }
 
-      // Insert order item (no stock decrement yet)
+      // If update worked, insert the item
       await client.query(
         "INSERT INTO order_items (order_id, album_id, quantity, price) VALUES ($1, $2, $3, $4)",
         [orderId, item.album_id, item.quantity, item.price]
